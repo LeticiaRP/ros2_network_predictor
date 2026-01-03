@@ -1,0 +1,361 @@
+{
+  "thresholds": {
+    "rtt_h2m_reliable_20.0Hz": {
+      "safety": 4744.3,
+      "failure": 4954.05,
+      "p50": 2497.0,
+      "p90": 4494.6,
+      "p95": 4744.3,
+      "p99": 4944.06,
+      "max": 4994.0,
+      "samples": 4995,
+      "original_unit": "ms"
+    },
+    "m2m_reliable_50.0Hz": {
+      "safety": 35.02,
+      "failure": 36.24,
+      "p50": 32.99,
+      "p90": 34.82,
+      "p95": 35.02,
+      "p99": 36.07,
+      "max": 36.94,
+      "samples": 5033,
+      "original_unit": "ns"
+    },
+    "rtt_m2h_reliable_5.0Hz": {
+      "safety": 4782.3,
+      "failure": 4992.05,
+      "p50": 2535.0,
+      "p90": 4532.6,
+      "p95": 4782.3,
+      "p99": 4982.06,
+      "max": 5032.0,
+      "samples": 4995,
+      "original_unit": "ms"
+    },
+    "h2m_reliable_20.0Hz": {
+      "safety": 11.43,
+      "failure": 11.92,
+      "p50": 5.4,
+      "p90": 11.33,
+      "p95": 11.43,
+      "p99": 11.62,
+      "max": 13.13,
+      "samples": 9989,
+      "original_unit": "ns"
+    },
+    "h2m_reliable_10.0Hz": {
+      "safety": 12.62,
+      "failure": 13.34,
+      "p50": 5.66,
+      "p90": 12.45,
+      "p95": 12.62,
+      "p99": 13.23,
+      "max": 13.77,
+      "samples": 9989,
+      "original_unit": "ns"
+    },
+    "rtt_h2m_reliable_100.0Hz": {
+      "safety": 4739.5,
+      "failure": 4953.04,
+      "p50": 2382.5,
+      "p90": 4455.5,
+      "p95": 4739.5,
+      "p99": 4943.05,
+      "max": 4993.0,
+      "samples": 5796,
+      "original_unit": "ms"
+    },
+    "rtt_m2h_reliable_100.0Hz": {
+      "safety": 0.01,
+      "failure": 0.01,
+      "p50": 0.0,
+      "p90": 0.01,
+      "p95": 0.01,
+      "p99": 0.01,
+      "max": 0.01,
+      "samples": 5003,
+      "original_unit": "ns"
+    },
+    "h2m_reliable_5.0Hz": {
+      "safety": 14.11,
+      "failure": 24.84,
+      "p50": 5.76,
+      "p90": 12.69,
+      "p95": 14.11,
+      "p99": 24.66,
+      "max": 25.58,
+      "samples": 9988,
+      "original_unit": "ns"
+    },
+    "m2m_reliable_5.0Hz": {
+      "safety": 15.56,
+      "failure": 23.6,
+      "p50": 13.58,
+      "p90": 14.57,
+      "p95": 15.56,
+      "p99": 23.0,
+      "max": 25.98,
+      "samples": 4998,
+      "original_unit": "ns"
+    },
+    "h2h_reliable_5.0Hz": {
+      "safety": 1.26,
+      "failure": 1.35,
+      "p50": 1.16,
+      "p90": 1.24,
+      "p95": 1.26,
+      "p99": 1.31,
+      "max": 1.5,
+      "samples": 4995,
+      "original_unit": "ns"
+    },
+    "h2h_reliable_10.0Hz": {
+      "safety": 1.21,
+      "failure": 1.32,
+      "p50": 1.1,
+      "p90": 1.19,
+      "p95": 1.21,
+      "p99": 1.28,
+      "max": 1.5,
+      "samples": 4994,
+      "original_unit": "ns"
+    },
+    "h2m_reliable_50.0Hz": {
+      "safety": 30.84,
+      "failure": 33.06,
+      "p50": 7.22,
+      "p90": 30.76,
+      "p95": 30.84,
+      "p99": 32.66,
+      "max": 34.7,
+      "samples": 9988,
+      "original_unit": "ns"
+    },
+    "m2m_reliable_10.0Hz": {
+      "safety": 14.59,
+      "failure": 23.2,
+      "p50": 13.59,
+      "p90": 13.68,
+      "p95": 14.59,
+      "p99": 23.0,
+      "max": 24.0,
+      "samples": 4996,
+      "original_unit": "ns"
+    },
+    "h2h_reliable_200.0Hz": {
+      "safety": 0.44,
+      "failure": 0.53,
+      "p50": 0.3,
+      "p90": 0.43,
+      "p95": 0.44,
+      "p99": 0.48,
+      "max": 0.73,
+      "samples": 4994,
+      "original_unit": "ns"
+    },
+    "rtt_h2m_reliable_200.0Hz": {
+      "safety": 0.0,
+      "failure": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0,
+      "samples": 1683,
+      "original_unit": "ns"
+    },
+    "h2h_reliable_100.0Hz": {
+      "safety": 0.86,
+      "failure": 1.09,
+      "p50": 0.45,
+      "p90": 0.83,
+      "p95": 0.86,
+      "p99": 1.03,
+      "max": 1.33,
+      "samples": 4994,
+      "original_unit": "ns"
+    },
+    "rtt_m2h_reliable_10.0Hz": {
+      "safety": 4828.9,
+      "failure": 5038.98,
+      "p50": 2578.0,
+      "p90": 4578.8,
+      "p95": 4828.9,
+      "p99": 5028.98,
+      "max": 5079.0,
+      "samples": 5003,
+      "original_unit": "ms"
+    },
+    "h2h_reliable_50.0Hz": {
+      "safety": 1.21,
+      "failure": 1.3,
+      "p50": 1.03,
+      "p90": 1.18,
+      "p95": 1.21,
+      "p99": 1.27,
+      "max": 1.41,
+      "samples": 4994,
+      "original_unit": "ns"
+    },
+    "m2m_reliable_200.0Hz": {
+      "safety": 35.32,
+      "failure": 36.25,
+      "p50": 33.32,
+      "p90": 34.51,
+      "p95": 35.32,
+      "p99": 36.19,
+      "max": 36.46,
+      "samples": 5013,
+      "original_unit": "ns"
+    },
+    "h2m_reliable_100.0Hz": {
+      "safety": 81.04,
+      "failure": 84.49,
+      "p50": 74.81,
+      "p90": 80.99,
+      "p95": 81.04,
+      "p99": 82.98,
+      "max": 90.53,
+      "samples": 5001,
+      "original_unit": "ns"
+    },
+    "h2m_reliable_200.0Hz": {
+      "safety": 86.92,
+      "failure": 94.64,
+      "p50": 72.45,
+      "p90": 80.72,
+      "p95": 86.92,
+      "p99": 93.66,
+      "max": 98.55,
+      "samples": 2901,
+      "original_unit": "ns"
+    },
+    "rtt_h2m_reliable_50.0Hz": {
+      "safety": 4744.35,
+      "failure": 4954.06,
+      "p50": 2497.5,
+      "p90": 4494.7,
+      "p95": 4744.35,
+      "p99": 4944.07,
+      "max": 4994.0,
+      "samples": 4994,
+      "original_unit": "ms"
+    },
+    "h2h_reliable_20.0Hz": {
+      "safety": 1.19,
+      "failure": 1.28,
+      "p50": 1.04,
+      "p90": 1.17,
+      "p95": 1.19,
+      "p99": 1.24,
+      "max": 1.43,
+      "samples": 4994,
+      "original_unit": "ns"
+    },
+    "rtt_m2h_reliable_50.0Hz": {
+      "safety": 5167.3,
+      "failure": 5378.73,
+      "p50": 2902.0,
+      "p90": 4915.6,
+      "p95": 5167.3,
+      "p99": 5368.66,
+      "max": 5419.0,
+      "samples": 5035,
+      "original_unit": "ms"
+    },
+    "m2m_reliable_20.0Hz": {
+      "safety": 14.59,
+      "failure": 17.28,
+      "p50": 13.59,
+      "p90": 14.58,
+      "p95": 14.59,
+      "p99": 15.6,
+      "max": 24.0,
+      "samples": 4999,
+      "original_unit": "ns"
+    },
+    "rtt_h2m_reliable_10.0Hz": {
+      "safety": 4744.3,
+      "failure": 4954.05,
+      "p50": 2497.0,
+      "p90": 4494.6,
+      "p95": 4744.3,
+      "p99": 4944.06,
+      "max": 4994.0,
+      "samples": 4995,
+      "original_unit": "ms"
+    },
+    "rtt_m2h_reliable_20.0Hz": {
+      "safety": 4898.45,
+      "failure": 5108.91,
+      "p50": 2643.5,
+      "p90": 4647.9,
+      "p95": 4898.45,
+      "p99": 5098.89,
+      "max": 5149.0,
+      "samples": 5012,
+      "original_unit": "ms"
+    },
+    "m2m_reliable_100.0Hz": {
+      "safety": 35.3,
+      "failure": 36.22,
+      "p50": 33.35,
+      "p90": 34.91,
+      "p95": 35.3,
+      "p99": 36.06,
+      "max": 36.85,
+      "samples": 4999,
+      "original_unit": "ns"
+    },
+    "rtt_m2h_reliable_200.0Hz": {
+      "safety": 0.01,
+      "failure": 0.01,
+      "p50": 0.0,
+      "p90": 0.01,
+      "p95": 0.01,
+      "p99": 0.01,
+      "max": 0.01,
+      "samples": 4999,
+      "original_unit": "ns"
+    },
+    "rtt_h2m_reliable_5.0Hz": {
+      "safety": 4744.3,
+      "failure": 4954.05,
+      "p50": 2497.0,
+      "p90": 4494.6,
+      "p95": 4744.3,
+      "p99": 4944.06,
+      "max": 4994.0,
+      "samples": 4995,
+      "original_unit": "ms"
+    }
+  },
+  "scenario_averages": {
+    "h2h": [
+      1.03,
+      1.14
+    ],
+    "h2m": [
+      1996.14,
+      2085.96
+    ],
+    "m2m": [
+      25.06,
+      28.8
+    ],
+    "rtt_h2m": [
+      3952.79,
+      4128.21
+    ],
+    "rtt_m2h": [
+      3279.49,
+      3419.78
+    ]
+  },
+  "total_configurations": 30,
+  "total_samples": 165364,
+  "units": "milliseconds",
+  "note": "ALL data converted from nanoseconds to milliseconds",
+  "assumption": "All raw CSV data is in nanoseconds"
+}
