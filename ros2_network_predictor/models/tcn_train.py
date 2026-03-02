@@ -26,8 +26,7 @@ EPOCHS = 30
 LR = 1e-3
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 QUANTILES = [0.05, 0.5, 0.95]
-DATA_PATH = '/home/leticia/ros2_ws/src/ros2_network_predictor/data/raw'
-
+DATA_PATH = '../../data/raw'
 
 
 
@@ -41,10 +40,7 @@ PLAT_MAP = {
 }
 
 
-
 print(f"Using device: {DEVICE}")
-
-
 
 
 
@@ -135,7 +131,6 @@ print("1. Auto-Discovering Datasets...")
 
 
 
-# 1. FIND FILES (OUTSIDE LOOP)
 files_lat = glob.glob(os.path.join(DATA_PATH, "latency_*.csv"))
 files_rtt = glob.glob(os.path.join(DATA_PATH, "rtt_*.csv"))
 files = files_lat + files_rtt
