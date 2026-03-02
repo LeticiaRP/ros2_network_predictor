@@ -2,14 +2,23 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 
+
+
 class Chomp1d(nn.Module):
+
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
         self.chomp_size = chomp_size
+
+
     def forward(self, x): 
         return x[:, :, :-self.chomp_size].contiguous()
 
+
+
+
 class TemporalBlock(nn.Module):
+
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2):
         super(TemporalBlock, self).__init__()
         self.conv1 = weight_norm(nn.Conv1d(n_inputs, n_outputs, kernel_size, stride=stride, padding=padding, dilation=dilation))
@@ -24,12 +33,17 @@ class TemporalBlock(nn.Module):
         self.downsample = nn.Conv1d(n_inputs, n_outputs, 1) if n_inputs != n_outputs else None
         self.relu = nn.ReLU()
 
+
     def forward(self, x):
         out = self.net(x)
         res = x if self.downsample is None else self.downsample(x)
         return self.relu(out + res)
 
+
+
+
 class UniversalQuantileTCN(nn.Module):
+
     def __init__(self, input_dim=4, output_len=1, num_quantiles=3, num_channels=[32, 64, 128, 64], kernel_size=3):
         super().__init__()
         layers = []
@@ -46,11 +60,14 @@ class UniversalQuantileTCN(nn.Module):
         self.linear = nn.Linear(num_channels[-1], output_len * num_quantiles)
         self.num_quantiles = num_quantiles
 
+
+
+
     def forward(self, x):
-        # Input x: (Batch, Seq_Len, Features) -> (N, 50, 4)
-        # Permute to (Batch, Features, Seq_Len) to match training script
+
         x = x.permute(0, 2, 1) 
         y = self.network(x)
-        # Take the last time step output for the linear layer
+        
         out = self.linear(y[:, :, -1])
+
         return out.view(out.shape[0], -1, self.num_quantiles)
