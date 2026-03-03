@@ -359,7 +359,7 @@ try:
 
 
     # save the model 
-    torch.save(model.state_dict(), "universal_tcn.pth")
+    torch.save(model.state_dict(), "/saved_models/universal_tcn.pth")
     print("Model saved to universal_tcn.pth")
 
 except KeyboardInterrupt:

@@ -55,10 +55,19 @@ python3 ros2_network_predictor/models/tcn_test.py
 ```
 
 3. Launch as a ROS 2 Node
-Integrate the predictor into your live robot control loop to monitor network health in real-time.
+You can point the node at any robot topic and specify the communication topology to improve prediction accuracy
+
 ```bash
-ros2 launch ros2_network_predictor predictor.launch.py
+ros2 launch ros2_network_predictor predictor.launch.py \
+    topic:=/camera/image_raw \
+    pkg:=sensor_msgs \
+    type:=Image \
+    scenario:=h2h \
+    freq:=30.0
 ```
+
+The available contexts are: `h2h` (host-host), `m2m` (mcu-mcu), `rtt_m2h` (mcu-host-mcu) and, `rtt_h2m` (host-mcu-host)
+
 
 
 ## Results Visualization

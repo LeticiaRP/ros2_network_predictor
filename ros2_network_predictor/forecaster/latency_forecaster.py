@@ -1,6 +1,8 @@
 import os
 import collections
 import numpy as np
+import importlib  # <--- Added
+from rclpy.signals import SignalHandlerOptions
 
 import torch
 import torch.nn as nn
@@ -36,7 +38,7 @@ THRESHOLD_DEFAULTS = {
 
 
 
-MODEL_TRAINED_PATH = "../models/saved_models/universal_tcn.pth"
+MODEL_TRAINED_PATH = "/home/leticia/ros2_ws/src/ros2_network_predictor/ros2_network_predictor/models/saved_models/universal_tcn.pth"
 
 
 
@@ -121,136 +123,141 @@ class LatencyForecaster(Node):
     def __init__(self):
         super().__init__('latency_forecaster_node')
         
-        
+        # params 
+        self.declare_parameter('topic', '/benchmark/latency/h2h')
+        self.declare_parameter('msg_pkg', 'std_msgs')
+        self.declare_parameter('msg_type', 'Float32')
         self.declare_parameter('scenario', 'h2h')
         self.declare_parameter('frequency_hz', 20.0)
         self.declare_parameter('qos_reliable', True)
-        self.declare_parameter('safety_threshold', -1.0) 
-        self.declare_parameter('failure_threshold', -1.0)
-        self.declare_parameter('alpha', 0.6) 
+        self.declare_parameter('calibration_steps', 100)
 
-        
+
+
+        pkg = self.get_parameter('msg_pkg').value
+        m_type = self.get_parameter('msg_type').value
+        topic_name = self.get_parameter('topic').value
         scenario_str = self.get_parameter('scenario').value.lower()
+        
+
         self.platform_id = PLAT_MAP.get(scenario_str, 0.0)
         self.freq_val = self.get_parameter('frequency_hz').value
         self.qos_val = 1.0 if self.get_parameter('qos_reliable').value else 0.0
-        self.alpha = self.get_parameter('alpha').value
-        safety_param = self.get_parameter('safety_threshold').value
-        failure_param = self.get_parameter('failure_threshold').value
-        
+        self.cal_limit = self.get_parameter('calibration_steps').value
 
-        # if safety_param < 0: # If not set manually by user
-        self.safety_threshold, self.failure_threshold = THRESHOLD_DEFAULTS.get(scenario_str, (1.0, 5.0))
-        # else:
-        #     self.safety_threshold, self.failure_threshold = safety_param, failure_param
-
-
-        device = 'cpu'
-        self.model = UniversalQuantileTCN(input_dim=4, output_len=1, num_quantiles=3).to(device)
 
         try:
-            self.model.load_state_dict(torch.load(MODEL_TRAINED_PATH, map_location=device))
-            self.model.eval()
-            self.get_logger().info(f"Model Loaded. Using thresholds for {scenario_str}: Safety={self.safety_threshold}, Failure={self.failure_threshold}")
+            module = importlib.import_module(f"{pkg}.msg")
+            msg_class = getattr(module, m_type)
+            self.sub = self.create_subscription(msg_class, topic_name, self.universal_callback, 10)
+            self.get_logger().info(f"Attached to {topic_name} | Scenario: {scenario_str}")
         except Exception as e:
-            self.get_logger().error(f"Failed to load weights: {e}")
+            self.get_logger().error(f"Import Failed: {e}")
             return
 
 
+        self.last_arrival_time = None
+        self.is_calibrated = False
+        self.calibration_data = []
         self.buffer = collections.deque(maxlen=50)
-        self.smoothed_p95 = self.safety_threshold
-        self.warning_active = False
-        self.t_warning = 0.0
-        self.total_samples = 0
-        self.reliability_hits = 0
+        self.tau = 0.0
+        self.f_limit = 0.0
 
 
-        self.sub = self.create_subscription(Float32, f'/benchmark/latency/{scenario_str}', self.callback, 10)
+        self.history_actual = []
+        self.history_p95 = []
+
+
+        # model 
+        self.model = UniversalQuantileTCN(input_dim=4, output_len=1).to('cpu')
+
+        try:
+            self.model.load_state_dict(torch.load(MODEL_TRAINED_PATH, map_location='cpu'))
+            self.model.eval()
+
+        except Exception as e:
+            self.get_logger().error(f"Model Load Error: {e}")
+
         self.pub_risk = self.create_publisher(Float32MultiArray, '/network/risk_profile', 10)
 
 
 
 
+    def universal_callback(self, msg):
+        now = self.get_clock().now()
+        
+        if self.last_arrival_time is None:
+            self.last_arrival_time = now
+            return
+        
+        latency_ms = (now.nanoseconds - self.last_arrival_time.nanoseconds) / 1e6
+        self.last_arrival_time = now
+
+        
+        if not self.is_calibrated:
+            self.calibration_data.append(latency_ms)
+            if len(self.calibration_data) >= self.cal_limit:
+                self.tau = np.percentile(self.calibration_data, 95)
+                self.f_limit = np.percentile(self.calibration_data, 99) * 1.2
+                self.is_calibrated = True
+                self.get_logger().info(f"✅ CALIBRATED: τ={self.tau:.2f}ms, F={self.f_limit:.2f}ms")
+            return
 
 
-    def callback(self, msg):
-        actual_latency = msg.data
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        freq_feature = np.clip(self.freq_val / 200.0, 0.0, 1.0)
+        # inference
+        freq_feat = np.clip(self.freq_val / 200.0, 0.0, 1.0)
+        self.buffer.append([latency_ms, self.qos_val, self.platform_id, freq_feat])
+        
 
-
-        self.buffer.append([actual_latency, self.qos_val, self.platform_id, freq_feature])
         if len(self.buffer) < 50: return
 
-        # Inference
-        input_tensor = torch.from_numpy(np.array(self.buffer)).float().unsqueeze(0)
+
+        input_t = torch.tensor(np.array(self.buffer)).float().unsqueeze(0)
         with torch.no_grad():
-            preds = self.model(input_tensor)
+            preds = self.model(input_t).numpy()
+            p50, p95 = preds[0, 0, 1], preds[0, 0, 2]
 
-
-        median = preds[0, 0, 1].item()
-        p95_raw = preds[0, 0, 2].item()
-
-
-        # Sanity check: ensure P95 is logically >= median
-        p95_validated = max(p95_raw, median + 0.1)
-
-
-
-        # Exponential smoothing
-        self.smoothed_p95 = (self.alpha * p95_validated) + ((1.0 - self.alpha) * self.smoothed_p95)
-
-
-
-        # risk calculation (sensitivity adjustment)
-        linear_risk = np.clip((self.smoothed_p95 - self.safety_threshold) / 
-                             (self.failure_threshold - self.safety_threshold), 0.0, 1.0)
         
+        # risk index equation 
+        risk_index = np.clip((p95 - self.tau) / (self.f_limit - self.tau), 0.0, 1.0)
 
-        # power scaling makes the risk index more reactive at high frequency
-        risk_index = np.power(linear_risk, 0.5) 
-
-
-        # reliability
-        self.total_samples += 1
-        if actual_latency <= self.smoothed_p95: self.reliability_hits += 1
-        reliability = self.reliability_hits / self.total_samples
+        self.history_actual.append(latency_ms)
+        self.history_p95.append(p95)
 
 
+        
+        if len(self.history_actual) % 20 == 0:
+            status = "OK" if risk_index < 0.4 else "WARN" if risk_index < 0.8 else "FAIL"
+            self.get_logger().info(
+                f"[{status}] Lat|P95: {latency_ms:5.2f}|{p95:5.2f} ms "
+                f"| Bounds [τ:{self.tau:4.1f} F:{self.f_limit:4.1f}] "
+                f"| RI: {risk_index:6.1%}"
+            )
 
-        # pub
+
+        # Publish results
         msg_out = Float32MultiArray()
-        msg_out.data = [median, self.smoothed_p95, self.smoothed_p95 - median, risk_index, reliability]
-        self.pub_risk.publish(msg_out)
-
-
-
-        # log warnings
-        if risk_index > 0.4 and not self.warning_active:
-            self.t_warning = current_time
-            self.warning_active = True
-            self.get_logger().warn(f"RISK DETECTED: {risk_index:.2%} | Anticipated P95: {self.smoothed_p95:.2f}ms")
-        
-
-
-        if actual_latency > (self.failure_threshold * 0.8) and self.warning_active:
-            lead_time = (current_time - self.t_warning) * 1000.0
-            self.get_logger().info(f"VALIDATION | Lead-Time: {lead_time:.1f}ms")
-            self.warning_active = False
+        msg_out.data = [
+            float(p50),          # tube center
+            float(p95),          # tube upper boundary
+            float(risk_index),   # control signal
+            float(latency_ms),   # ground truth (Actual)
+            float(self.tau),     # dynamic floor
+            float(self.f_limit)  # dynamic ceiling
+        ]
 
 
 
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = LatencyForecaster()  
+    rclpy.init(args = None, signal_handler_options = SignalHandlerOptions.NO)
+    node = LatencyForecaster()
     try:
-        if hasattr(node, 'model'):
-            rclpy.spin(node)
+        rclpy.spin(node)
     except KeyboardInterrupt:
+
         pass
 
-
-if __name__ == '__main__':
-    main()
+    
+    rclpy.shutdown()

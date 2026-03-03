@@ -5,38 +5,24 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
 
-
-    # Define command-line arguments
-    scenario_arg = DeclareLaunchArgument('scenario', default_value='h2h')
+    
+    topic_arg = DeclareLaunchArgument('topic', default_value='/benchmark/latency/h2h')
+    pkg_arg = DeclareLaunchArgument('pkg', default_value='std_msgs')
+    type_arg = DeclareLaunchArgument('type', default_value='Float32')
     freq_arg = DeclareLaunchArgument('freq', default_value='20.0')
-    qos_arg = DeclareLaunchArgument('reliable', default_value='True')
-    safety_arg = DeclareLaunchArgument('safety', default_value='0.7')
-    failure_arg = DeclareLaunchArgument('failure', default_value='2.0')
+    cal_arg = DeclareLaunchArgument('cal', default_value='100')
 
-
-
-    # Setup the Node
     predictor_node = Node(
         package='ros2_network_predictor',
         executable='network_predictor_node',
-        name='network_predictor_node',
         output='screen',
         parameters=[{
-            'scenario': LaunchConfiguration('scenario'),
+            'topic': LaunchConfiguration('topic'),
+            'msg_pkg': LaunchConfiguration('pkg'),
+            'msg_type': LaunchConfiguration('type'),
             'frequency_hz': LaunchConfiguration('freq'),
-            'qos_reliable': LaunchConfiguration('reliable'),
-            'safety_threshold': LaunchConfiguration('safety'),
-            'failure_threshold': LaunchConfiguration('failure'),
+            'calibration_steps': LaunchConfiguration('cal'),
         }]
     )
 
-
-
-    return LaunchDescription([
-        scenario_arg,
-        freq_arg,
-        qos_arg,
-        safety_arg,
-        failure_arg,
-        predictor_node
-    ])
+    return LaunchDescription([topic_arg, pkg_arg, type_arg, freq_arg, cal_arg, predictor_node])
