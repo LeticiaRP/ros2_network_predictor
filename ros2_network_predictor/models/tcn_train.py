@@ -359,7 +359,7 @@ try:
 
 
     # save the model 
-    torch.save(model.state_dict(), "/saved_models/universal_tcn.pth")
+    torch.save(model.state_dict(), "/home/leticia/ros2_ws/src/ros2_network_predictor/ros2_network_predictor/models/saved_models/universal_tcn.pth")
     print("Model saved to universal_tcn.pth")
 
 except KeyboardInterrupt:
