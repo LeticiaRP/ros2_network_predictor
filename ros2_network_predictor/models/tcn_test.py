@@ -137,6 +137,17 @@ def run_stress_test():
         ri = (p95 - tau) / (f_limit - tau)
         risk_indices.append(np.clip(ri, 0, 1))
 
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 14,
+        'axes.titlesize': 16,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'legend.fontsize': 12,
+        'figure.titlesize': 16
+    })
+
+
     plot_x = range(input_len, len(raw_data))
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
@@ -160,14 +171,14 @@ def run_stress_test():
     events = [(50, "Freq Drop"), (150, "Best Effort"), (250, "Cyclic Jitter"), (350, "Buffer Saturation")]
     for x, txt in events:
         plt.axvline(x=x, color='gray', linestyle='--', alpha=0.5)
-        ax1.text(x+2, 0.061, txt, fontweight='bold')
+        ax1.text(x+2, 0.0, txt, fontweight='bold')
 
 
     plt.title("Stress Test: Latency vs. Risk Index Anticipation")
     fig.legend(loc='upper left', bbox_to_anchor=(0.15, 0.85))
     plt.grid(True, alpha=0.2)
-    plt.savefig(os.path.join(SAVE_DIR, f"stress_test.png"), bbox_inches='tight', dpi=300)
-    print("Plot saved as stress_test_with_ri.png")
+    plt.savefig(os.path.join(SAVE_DIR, f"stress_test.pdf"), bbox_inches='tight', dpi=300)
+    print("Plot saved as stress_test.png")
 
 
 
