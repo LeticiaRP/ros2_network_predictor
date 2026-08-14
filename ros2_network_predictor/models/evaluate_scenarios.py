@@ -12,7 +12,7 @@ import seaborn as sns
 INPUT_LEN = 50
 OUTPUT_LEN = 1
 DEVICE = "cpu"  
-DATA_PATH = '../../data/raw'
+DATA_PATH = '../../data/test'
 MODEL_TRAINED_PATH = "saved_models/universal_tcn.pth"
 SAVE_DIR = "model_results/"
 
@@ -113,6 +113,17 @@ def load_data(filepath):
 # STATISTICAL ANALYSIS -----------------------------------------------------------------------------------------------------
 
 def plot_statistical_sweep(model, all_files):
+
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 14,
+        'axes.titlesize': 16,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'legend.fontsize': 12,
+        'figure.titlesize': 16
+    })
+        
     summary = []
     for f_path in all_files:
         if 'jitter' in f_path: continue
@@ -146,6 +157,17 @@ def plot_statistical_sweep(model, all_files):
 
 
 def plot_shaded_safety_panels(model, all_files, topo):
+
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 14,
+        'axes.titlesize': 16,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'legend.fontsize': 12,
+        'figure.titlesize': 16
+    })
+
     freqs = ['10.0Hz', '50.0Hz', '200.0Hz']
     qos_types = ['best_effort', 'reliable']
     
@@ -196,6 +218,16 @@ def plot_shaded_safety_panels(model, all_files, topo):
 
 
 def plot_shaded_with_risk(model, all_files, topo):
+
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 14,
+        'axes.titlesize': 16,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'legend.fontsize': 12,
+        'figure.titlesize': 16
+    })
 
     freqs = ['10.0Hz', '50.0Hz', '200.0Hz']
     qos_types = ['best_effort', 'reliable']
@@ -271,7 +303,7 @@ if __name__ == "__main__":
         
         scenarios = ['m2m', 'h2h', 'rtt_m2h', 'rtt_h2m']
 
-        # plot_statistical_sweep(model, files)
+        plot_statistical_sweep(model, files)
 
         for scenario in scenarios:
             plot_shaded_with_risk(model, files, scenario)
