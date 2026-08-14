@@ -200,7 +200,7 @@ class LatencyForecaster(Node):
                 self.tau = np.percentile(self.calibration_data, 95)
                 self.f_limit = np.percentile(self.calibration_data, 99) * 1.2
                 self.is_calibrated = True
-                self.get_logger().info(f"✅ CALIBRATED: τ={self.tau:.2f}ms, F={self.f_limit:.2f}ms")
+                self.get_logger().info(f"CALIBRATED: τ={self.tau:.2f}ms, F={self.f_limit:.2f}ms")
             return
 
 
