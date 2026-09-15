@@ -75,3 +75,8 @@ The evaluation script generates comprehensive subplots comparing:
 - Best Effort vs. Reliable QoS across 10Hz, 50Hz, and 200Hz.
 - Actual Latency vs. Predicted Envelopes.
 - Real-time Risk Index spikes corresponding to network anomalies.
+
+
+## Dataset
+The 48-scenario benchmark dataset is available at:
+https://doi.org/10.5281/ZENODO.22178411
