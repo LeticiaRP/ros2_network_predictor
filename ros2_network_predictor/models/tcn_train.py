@@ -30,12 +30,10 @@ def parse_matadata(filename):
     Extracts QoS, topology, and frequency from the filename
 
     Argument: 
-    - filename: file's path 
+        - filename: file's path 
 
     Returns: 
-    - topology
-    - freq_hz 
-    - qos 
+        - tuple: (topology, qos, freq_hz)
     """
 
     measure_type = None 
@@ -43,33 +41,50 @@ def parse_matadata(filename):
     qos_policy = None
     frequency = None
 
-
     basename = os.path.basename(filename)
     parts = basename.split("_")
 
-    parts[0] = measure_type     # latency (one-way-path) / rtt /(round time trip)
-    parts[1] = scenario         # scenario (h2h, m2m, h2m, m2h)
-    parts[2] = qos_policy       # qos (best effort, reliable)
-    parts[3] = frequency        # frequency (5.0Hz, 10.0Hz, 20.0Hz, 50.0Hz, 100.0Hz, 200.0Hz)
+
+    measure_type = parts[0]      # latency (one-way-path) / rtt /(round time trip)
+    scenario = parts[1]
+
 
     try: 
 
+        # identify topology 
         if measure_type == "rtt": 
-            topology = TOPOLOGY_MAP.get(f"rtt_{scenario}")
+            topology_key = f"rtt_{scenario}"
         elif measure_type == "latency": 
-            topology = TOPOLOGY_MAP.get(f"{scenario}")
+            topology_key = scenario
         else: 
-            return Exception
-
-        qos = TOPOLOGY_MAP.get(f"{qos_policy}")
-        freq_hz = TOPOLOGY_MAP.get(f"{frequency}")
+            raise ValueError(f"Unknown measure_type '{measure_type}' in  {basename}")
 
 
-        return topology, qos, freq_hz
+        # identify qos and frequency 
+        if parts[2] == "best" and parts[3] == "effort": 
+            qos_policy = "best_effort"
+            frequency = parts[4]
+
+        elif parts[2] == "reliable": 
+            qos_policy = parts[2]
+            frequency = parts[3]
+        
+        else: 
+            raise ValueError(f"Unknown qos policy {parts[2]} in {basename}")
+
+
+        # get value from the dictionary
+        qos = QOS.get(qos_policy)
+        freq_hz = FREQUENCY_MAP.get(frequency)
+        topology = TOPOLOGY_MAP.get(topology_key)
+
+        return qos, freq_hz, topology
+
     
     except Exception as e: 
+        
         print(f"Error {e}")
-        pass 
+        pass
 
-    
+
 
