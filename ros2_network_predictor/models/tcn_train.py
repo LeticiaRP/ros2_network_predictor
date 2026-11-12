@@ -1,4 +1,10 @@
 import os
+import glob
+import logging
+import pandas as pd 
+import numpy as np 
+from tqdm import tqdm # progress bar 
+
 
 TOPOLOGY_MAP = {
     "h2h" : 0.0,
@@ -23,8 +29,22 @@ QOS = {
     "reliable":1.0,
 }
 
+
 DATA_FOLDER = "../../data/raw"      # folder with the raw data 
 
+REQUIRED_DATA = ["seq", "latency_ns", "tx", "rx"]     # csv structure for train the network
+
+W = 50                              # analyzed window (W)
+
+FREQ_MAX = max(FREQUENCY_MAP.values())     # max analyzed frequency 
+
+
+
+
+logger = logging.getLogger("[TCN TRAIN]")
+logging.basicConfig(level=logging.DEBUG)
+
+#TODO: improve error handler 
 def parse_matadata(filename): 
     """
     Extracts QoS, topology, and frequency from the filename
@@ -51,7 +71,7 @@ def parse_matadata(filename):
 
     try: 
 
-        # identify topology 
+        # ------------------- identify topology ------------------------
         if measure_type == "rtt": 
             topology_key = f"rtt_{scenario}"
         elif measure_type == "latency": 
@@ -60,7 +80,8 @@ def parse_matadata(filename):
             raise ValueError(f"Unknown measure_type '{measure_type}' in  {basename}")
 
 
-        # identify qos and frequency 
+
+        # -------------------- identify qos and frequency --------------------
         if parts[2] == "best" and parts[3] == "effort": 
             qos_policy = "best_effort"
             frequency = parts[4]
@@ -73,7 +94,9 @@ def parse_matadata(filename):
             raise ValueError(f"Unknown qos policy {parts[2]} in {basename}")
 
 
-        # get value from the dictionary
+
+
+        # -------------- get value from the dictionary ---------------------
         qos = QOS.get(qos_policy)
         freq_hz = FREQUENCY_MAP.get(frequency)
         topology = TOPOLOGY_MAP.get(topology_key)
@@ -84,7 +107,103 @@ def parse_matadata(filename):
     except Exception as e: 
         
         print(f"Error {e}")
-        pass
+        pass 
 
+
+def load_folder_path(folder_path): 
+    """
+    Iteracts throught all CSVs in a folder, extracts the data and returns a list of numpy arrays
+
+    Arguments: 
+        - folder_path: folder that contains the data for train, test and validation of the tcn
+    
+    Returns: 
+        - 
+    """
+
+    try: 
+
+        all_files = glob.glob(os.path.join(folder_path, "*.csv"))
+
+        if not all_files: 
+            raise ValueError(f"Could not find CSV files in {folder_path}!")
+
+        logger.info(f"Found {len(all_files)} in the {folder_path} folder")
+
+        for filepath in tqdm(all_files): 
+
+            qos, freq_hz, topolocy = parse_matadata(filepath)
+
+            
+            
+    except Exception as e: 
+        print(f"Error {e}")
+        pass 
+
+
+
+    def extract_features(filepath, qos, freq_hz, topology):
+
+        try:
+
+            df = pd.read_csv(filepath)
+
+
+            # ---------- verify if the csv data is valid  ---------
+            
+            for col in REQUIRED_DATA: 
+                if col not in df.coluns: 
+                    raise ValueError(f"Data frame must contain {col}! The available columns are {df.columns.tolist()}")
+                
+
+            # ------------ extract data from the csv --------------
+
+            seq_raw = pd.to_numeric(df[REQUIRED_DATA[0]], errors="coerce")
+            lat_raw = pd.to_numeric(df[REQUIRED_DATA[1]], errors="coerce")
+            tx_raw = pd.to_numeric(df[REQUIRED_DATA[2]], errors="coerce")
+            rx_raw = pd.to_numeric(df[REQUIRED_DATA[3]], errors="coerce")
+
+
+            # ------------ calculate the metric(s -----------------
+        
+            # -- inter-arrival time (a(t))
+            a_t = rx_raw - rx_raw.shift(1)
+
+            # -- sequence delta
+            delta_seq = seq_raw - seq_raw.shift(1)   #TODO: ve se precisa normalizar 
+
+            # -- deadline 
+            deadline = 1/freq_hz
+
+            # -- normalized frequence 
+            freq_norm = freq_hz/FREQ_MAX
+
+            # -- qos 
+            q_col = np.full(len(df), qos)
+
+            # -- topology 
+            c_col = np.full(len(df), topology)
+
+
+            # ----------- build feature DataFrame 
+            features = pd.DataFrame({
+                "l_t": lat_raw,             # latency 
+                "a_t": a_t,                 # Inter-arrival time
+                "delta_seq": delta_seq,     # Packet loss 
+                "f_norm": freq_norm,        # Normalized frequency 
+                "q_t": q_col,               # QoS policy 
+                "c_t": c_col                # Scenario Topology 
+            })
+
+
+        except Exception as e: 
+            logger.error(f"Error {e}")
+            pass
+
+
+
+if __name__ == '__main__': 
+
+    load_folder_path(DATA_FOLDER)
 
 
