@@ -30,14 +30,16 @@ QOS = {
 }
 
 
-DATA_FOLDER = "../../data/raw"      # folder with the raw data 
+DATA_FOLDER = "../../data/raw"          # folder with the raw data 
 
-REQUIRED_DATA = ["seq", "latency_ns", "tx", "rx"]     # csv structure for train the network
+REQUIRED_DATA = ["seq", "tx", "rx"]     # csv structure for train the network
 
-W = 50                              # analyzed window (W)
+WINDOW_SIZE = 2                       # analyzed window (W)
 
+
+# LIMITS
 FREQ_MAX = max(FREQUENCY_MAP.values())     # max analyzed frequency 
-
+DELTA_SIGMA_MAX = 10
 
 
 
@@ -45,7 +47,7 @@ logger = logging.getLogger("[TCN TRAIN]")
 logging.basicConfig(level=logging.DEBUG)
 
 #TODO: improve error handler 
-def parse_matadata(filename): 
+def metadata_from_filename(filename): 
     """
     Extracts QoS, topology, and frequency from the filename
 
@@ -55,11 +57,6 @@ def parse_matadata(filename):
     Returns: 
         - tuple: (topology, qos, freq_hz)
     """
-
-    measure_type = None 
-    scenario = None
-    qos_policy = None
-    frequency = None
 
     basename = os.path.basename(filename)
     parts = basename.split("_")
@@ -95,11 +92,16 @@ def parse_matadata(filename):
 
 
 
-
         # -------------- get value from the dictionary ---------------------
-        qos = QOS.get(qos_policy)
-        freq_hz = FREQUENCY_MAP.get(frequency)
-        topology = TOPOLOGY_MAP.get(topology_key)
+        qos = float(QOS.get(qos_policy))
+        freq_hz = float(FREQUENCY_MAP.get(frequency))
+        topology = float(TOPOLOGY_MAP.get(topology_key))
+
+
+        # ---------- debug -------------
+        logger.debug(f" File {basename} is: Qos: {qos} | Freq: {freq_hz} | Topology: {topology}\n")
+
+
 
         return qos, freq_hz, topology
 
@@ -107,10 +109,12 @@ def parse_matadata(filename):
     except Exception as e: 
         
         print(f"Error {e}")
-        pass 
+        raise 
 
 
-def load_folder_path(folder_path): 
+
+
+def main(folder_path): 
     """
     Iteracts throught all CSVs in a folder, extracts the data and returns a list of numpy arrays
 
@@ -123,6 +127,7 @@ def load_folder_path(folder_path):
 
     try: 
 
+        # -------- get all the csv files for a gien folder 
         all_files = glob.glob(os.path.join(folder_path, "*.csv"))
 
         if not all_files: 
@@ -130,80 +135,200 @@ def load_folder_path(folder_path):
 
         logger.info(f"Found {len(all_files)} in the {folder_path} folder")
 
+        # -------- process the data of each file presented at folder 
         for filepath in tqdm(all_files): 
 
-            qos, freq_hz, topolocy = parse_matadata(filepath)
+            qos, freq_hz, topology = metadata_from_filename(filepath)
+
+            msg_seq_raw, msg_tx_raw, msg_rx_raw = load_raw_data(filepath)
+
+            features = compute_features(msg_seq_raw, msg_rx_raw, msg_tx_raw, qos, topology, freq_hz)
+
+            X = compute_sliding_window(features, WINDOW_SIZE)
 
             
             
     except Exception as e: 
         print(f"Error {e}")
-        pass 
+        raise 
 
 
 
-    def extract_features(filepath, qos, freq_hz, topology):
+def load_raw_data(filepath):
 
-        try:
+    """
+    Returns raw data from a given CSV file
 
-            df = pd.read_csv(filepath)
+    Arguments: 
+        - filepath: filepath for a given CSV 
+    
+    Returns: 
+        - seq_raw: Message seq ID
+        - tx_raw: ROS 2 timestamp from when the transmission happened  
+        - rx_raw: ROS 2 timestamp from when the reception happened 
 
+    """
 
-            # ---------- verify if the csv data is valid  ---------
-            
-            for col in REQUIRED_DATA: 
-                if col not in df.coluns: 
-                    raise ValueError(f"Data frame must contain {col}! The available columns are {df.columns.tolist()}")
-                
-
-            # ------------ extract data from the csv --------------
-
-            seq_raw = pd.to_numeric(df[REQUIRED_DATA[0]], errors="coerce")
-            lat_raw = pd.to_numeric(df[REQUIRED_DATA[1]], errors="coerce")
-            tx_raw = pd.to_numeric(df[REQUIRED_DATA[2]], errors="coerce")
-            rx_raw = pd.to_numeric(df[REQUIRED_DATA[3]], errors="coerce")
+    try:
 
 
-            # ------------ calculate the metric(s -----------------
+        df = pd.read_csv(filepath)
+
+        # ---------- verify if the csv data is valid  ---------
         
-            # -- inter-arrival time (a(t))
-            a_t = rx_raw - rx_raw.shift(1)
+        for col in REQUIRED_DATA: 
+            if col not in df.columns: 
+                raise ValueError(f"Missing column '{col}' in {filepath}! Available: {df.columns.tolist()}")
+            
 
-            # -- sequence delta
-            delta_seq = seq_raw - seq_raw.shift(1)   #TODO: ve se precisa normalizar 
+        # ------------ extract data from the csv --------------
 
-            # -- deadline 
-            deadline = 1/freq_hz
+        msg_seq_raw = pd.to_numeric(df[REQUIRED_DATA[0]], errors="coerce")
+        msg_tx_raw = pd.to_numeric(df[REQUIRED_DATA[1]], errors="coerce")
+        msg_rx_raw = pd.to_numeric(df[REQUIRED_DATA[2]], errors="coerce")
 
-            # -- normalized frequence 
-            freq_norm = freq_hz/FREQ_MAX
-
-            # -- qos 
-            q_col = np.full(len(df), qos)
-
-            # -- topology 
-            c_col = np.full(len(df), topology)
+        return msg_seq_raw, msg_tx_raw, msg_rx_raw
 
 
-            # ----------- build feature DataFrame 
-            features = pd.DataFrame({
-                "l_t": lat_raw,             # latency 
-                "a_t": a_t,                 # Inter-arrival time
-                "delta_seq": delta_seq,     # Packet loss 
-                "f_norm": freq_norm,        # Normalized frequency 
-                "q_t": q_col,               # QoS policy 
-                "c_t": c_col                # Scenario Topology 
-            })
+    
+    except Exception as e: 
+        logger.error(f"Error {e}")
+        raise
 
 
-        except Exception as e: 
-            logger.error(f"Error {e}")
-            pass
+
+
+def compute_features(msg_seq, msg_rx, msg_tx, qos, topology, freq):
+    """
+    Returns the features for trainning the TCN
+
+    Arguments: 
+        - msg_seq: raw data of the messages seq id
+        - msg_rx: raw data of the message reception time 
+        - msg_tx: raw data of the message transmission time 
+        - qos: id for the selected qos policy 
+        - topology: id for the selected topology 
+        - freq: raw value of the selected frequency 
+
+    
+    Return: 
+        - features: structure of data to train the neural network
+    
+    """
+
+
+    try: 
+
+        # ------------ calculate the metric(s -----------------
+        # -- latency 
+        l_t = msg_rx - msg_tx
+
+
+        # -- inter-arrival time (a(t))
+        a_t = msg_rx - msg_rx.shift(1)
+        a_t[0] = msg_rx[0]
+
+        # -- sequence delta
+        max_seq_seen = -1.0
+        delta_sigma = []
+
+        for seq in msg_seq: 
+
+            if max_seq_seen == -1: 
+                delta = 0
+                max_seq_seen = seq
+
+            elif seq > max_seq_seen: 
+                gap = seq - max_seq_seen
+                delta = gap - 1 
+                max_seq_seen = seq
+
+            else: 
+                delta = 1
+
+            delta_sigma.append(delta)
+
+            
+        # -- normalized frequence 
+        freq_norm = freq/FREQ_MAX
+
+        # -- qos 
+        q_col = np.full(len(msg_seq), qos)
+
+        # -- topology 
+        c_col = np.full(len(msg_seq), topology)
+
+
+        # ----------- build feature DataFrame 
+        features = pd.DataFrame({
+            "l_t": l_t,             # latency 
+            "a_t": a_t,                 # Inter-arrival time
+            "delta_seq": delta_sigma,     # Packet loss 
+            "f_norm": freq_norm,        # Normalized frequency 
+            "q_t": q_col,               # QoS policy 
+            "c_t": c_col                # Scenario Topology 
+        })
+
+
+        # --------- debug 
+
+        logging.debug(f"Features: \n{features}\n")
+
+
+        if features.isna().values.any(): 
+            logger.warning(f"The DataFrame has a NaN value at {features.isna().any()}")
+
+        elif features is None: 
+            raise ValueError(f"The DataFrame is empty!")
+
+        return features
+
+    except Exception as e: 
+        logger.error(f"Error: {e}")
+        raise
+
+
+
+
+def compute_sliding_window(features, window_size):
+
+    """
+    Transform the matrix of features (N,6) in sliding window 
+
+    Arguments: 
+        - features: matrix of data
+        - window_size: value of the window size 
+    
+    Returns: 
+        - X: sliding window
+    """
+
+    try: 
+        data = features.values
+
+        windows = np.lib.stride_tricks.sliding_window_view(
+                data, 
+                window_shape=window_size, 
+                axis=0
+            )
+
+        X = windows.transpose(0,2,1) # transpose to (sample, feature, tempo)
+
+
+        # --------- debug ---------
+        logger.debug(X)
+
+        return X
+
+    except Exception as e:
+        logger.error(f"Error {e}")
+
+
 
 
 
 if __name__ == '__main__': 
 
-    load_folder_path(DATA_FOLDER)
+    main(DATA_FOLDER)
 
 
