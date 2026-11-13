@@ -1,9 +1,11 @@
 import os
 import glob
+import torch
 import logging
 import pandas as pd 
 import numpy as np 
 from tqdm import tqdm # progress bar 
+from torch.utils.data import Dataset, DataLoader
 
 
 TOPOLOGY_MAP = {
@@ -34,13 +36,15 @@ DATA_FOLDER = "../../data/raw"          # folder with the raw data
 
 REQUIRED_DATA = ["seq", "tx", "rx"]     # csv structure for train the network
 
-WINDOW_SIZE = 2                       # analyzed window (W)
+WINDOW_SIZE = 50                       # analyzed window (W)
 
 
 # LIMITS
 FREQ_MAX = max(FREQUENCY_MAP.values())     # max analyzed frequency 
 DELTA_SIGMA_MAX = 10
 
+HORIZONS = [1, 5, 10, 20]
+HORIZON_MAX = max(HORIZONS)
 
 
 logger = logging.getLogger("[TCN TRAIN]")
@@ -144,8 +148,13 @@ def main(folder_path):
 
             features = compute_features(msg_seq_raw, msg_rx_raw, msg_tx_raw, qos, topology, freq_hz)
 
-            X = compute_sliding_window(features, WINDOW_SIZE)
+            X_windows = compute_sliding_window(features, window_size=WINDOW_SIZE)
 
+            latency_array = features["l_t"].values
+
+            dataset = MultiHorizonDataset(X_windows=X_windows,latency_series=latency_array)
+
+            print(dataset)
             
             
     except Exception as e: 
@@ -324,7 +333,73 @@ def compute_sliding_window(features, window_size):
         logger.error(f"Error {e}")
 
 
+class MultiHorizonDataset(Dataset):
 
+    def __init__(self, X_windows, latency_series, horizons = HORIZONS, max_horizon = HORIZON_MAX):
+        """
+        Creates a Pytorch Dataset that pairs sliding windows of feature (X) with their corresponding future latency targets (Y) across multiple horizons 
+
+        Arguments: 
+            - X_windows: matrix of sliding windows (N_samples, window_size, n_features)
+            - latency_series: 1D array containing the raw latency values 
+            - horizons: list of step-ahead forecast horizons 
+            - max_horizons: maximum value in horizons, used to discard windows that don't have a valid future target 
+
+
+        Returns:
+            - X: tensor of shape (N_samples, window_size, n_features)
+            - Y: tensor of shape (N_samples, len(horizons)) representing the true latency at t+h for each horizon h
+
+        """
+
+        self.horizons = horizons
+        self.max_horizon = max_horizon
+
+        
+        # ----------- create the tensor for X -----------------
+        X_windows = X_windows[:-max_horizon]
+        self.X = torch.tensor(X_windows, dtype=torch.float32)
+        
+
+        # ---------- create the tensor for Y ------------------
+        self.Y = []
+
+        for i in range(len(self.X)): 
+
+            window_end_idx = i + 49         # totalizing 50 samples 
+
+            target = [latency_series[window_end_idx+h] for h in horizons]
+            self.Y.append(target)
+
+
+        self.Y = torch.tensor(self.Y, dtype=torch.float32)  
+
+
+
+    def __len__(self):
+        """
+        Returns the total number of valid samples (sliding windows) in the dataset 
+    
+        Returns: 
+            - int: number of samples available (size of the X tensor)
+        """
+        return len(self.X)
+
+
+
+    def __getitem__(self, index):
+        """
+        Retrieves a single sample and its corresponding target at the given index
+
+        Arguments: 
+            - index: index of the sample to retrieve
+
+        Returns: 
+            - tuple: (X_sample, Y_target) where:
+                - X_sample: tensor of shape (window_size, 6) with the historical features
+                - Y_target: tensor of shape (len(horizons),) with the future latency values
+        """
+        return self.X[index], self.Y[index]
 
 
 if __name__ == '__main__': 
