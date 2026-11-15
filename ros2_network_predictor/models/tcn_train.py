@@ -182,6 +182,19 @@ def main(folder_path):
             logging.debug(dataset)
 
 
+            # Sanity check 
+            # -------------------------------------------------
+            # dummy_X = torch.randn(64, WINDOW_SIZE, N_INPUTS)  # (Batch, Tempo, Features)
+            # dummy_Y = torch.randn(64, N_HORIZONS)      # (Batch, Horizontes)
+
+            # model = TCN(input_dim=N_INPUTS, num_horizons=N_HORIZONS, num_quantiles=N_QUANTILES)
+            # criterion = LossFunction(quantiles=QUANTILES, horizons=HORIZONS, beta=BETA)
+
+            # preds = model(dummy_X)
+            # print(f"Shape das previsões: {preds.shape}") # Deve ser [64, 4, 3]
+
+            # loss = criterion(preds, dummy_Y)
+            # print(f"Loss: {loss.item()}")
             
             
     except Exception as e: 
