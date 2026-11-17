@@ -125,6 +125,46 @@ def compute_safety_threshold(deadline):
 
 
 
+def compute_failure_threshold(deadline): 
+    """
+    Eq. 12: Failure threshold
+
+    Computes the critical latency failure thrshold equal to 100% of the application deadline 
+
+    Arguments: 
+        - dealine: Maximum allowable latency deadline in ms 
+    
+    Returns: 
+        - float: Failure threshold (F) in ms 
+    """
+
+    return deadline
+
+
+
+def compute_latency_risk(latency_p95_preds, tau, F): 
+    """
+    Eq. 15: Latency risk 
+
+    Computes the normalized latency risk score r_L in [0,1] based on the P95 latency prediction 
+
+    Arguments: 
+        - latency_p95_preds: Array of scalar of 95th percentile (P95) latency prediction in ms 
+        - tau: Safe operational latency threshold in ms
+        - F: Critical latency failure threshold in ms
+    
+    Returns: 
+        - np.array: Normalized latency risk values clipped between 0.0 (safe) and 1.0 (failure)
+    """
+
+    if (F - tau) == 0: 
+        return np.zeros(latency_p95_preds, dtype=float)
+
+    # linear interpolation between tau and F 
+    ri = (latency_p95_preds - tau) / (F - tau)
+
+    return np.clip(ri, 0.0, 1.0)
+
 
 
 
