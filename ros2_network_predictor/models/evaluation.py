@@ -105,7 +105,6 @@ def compute_deadline(fred_hz):
 
 
 
-
 def compute_safety_threshold(deadline): 
     """
 
@@ -124,7 +123,6 @@ def compute_safety_threshold(deadline):
 
 
 
-
 def compute_failure_threshold(deadline): 
     """
     Eq. 12: Failure threshold
@@ -139,7 +137,6 @@ def compute_failure_threshold(deadline):
     """
 
     return deadline
-
 
 
 
@@ -252,7 +249,6 @@ def compute_frequency_risk(f_nom, f_eff, tau_f=0.1):
 
 
 
-
 def compute_packet_loss_risk(p_loss, p_fail):
     """
     Eq. 16: Packet loss risk
@@ -281,7 +277,6 @@ def compute_packet_loss_risk(p_loss, p_fail):
 
     except Exception as e: 
         raise ValueError(f"Error processing the packet loss risk: {e}")
-
 
 
 
@@ -358,6 +353,7 @@ def compute_true_failures(latency, D_ms):
     return latency >= D_ms
 
 
+
 def compute_TRF(RI, theta_eval = 0.7): 
     """
     Eq. 19: Time-in-Risk Fraction
@@ -389,6 +385,53 @@ def compute_TRF(RI, theta_eval = 0.7):
         raise ValueError(f"Error processing the TRF: {e}")
 
 
+
+def compute_RER(RI, true_failures, tau_F, theta_eval=0.7):
+    """
+    Computes the false-alarm fraction, that is, the proportion of risk alerts (RI >= theta_eval) that 
+    were NOT followed by an atual deadline failure within the look-ahead horizon 
+
+    Arguments: 
+        - RI: Risk Index Composite with values in [0.0, 1.0]
+        - true_failures: Boolean array indicating actual deadline violations 
+        - theta_eval: Risk threshold triggering an alert 
+        - tau_f: look-ahead prediction horizon in time steps
+    
+    Returns: 
+        - RER: False-alarm rate
+    """
+
+    try: 
+
+        # find all indices where the risk index triggers an alert
+        risk_exceeded = RI >= theta_eval
+        alarm_indices = np.where(risk_exceeded)[0]
+
+        # if no alarms were triggered, the false alarm rate is zero
+        if len(alarm_indices) == 0: 
+            RER = 0.0
+            return RER
+
+        false_alarms = 0
+        N = len(RI)
+
+        # evaluate each alert against the subsequent look-ahead window
+        for t in alarm_indices: 
+
+            # slice future failures states, clamping to array lenght N to avoid out-of-bounds 
+            future_window = true_failures[t : min(t + tau_F + 1, N)]
+
+            # count as a false alarms if no true failure materializes within the horizon
+            if not np.any(future_window): 
+                false_alarms += 1
+
+
+        # returns the ratio of uncorfirmed alerts
+        RER = false_alarms / len(alarm_indices)
+        return RER
+
+    except Exception as e: 
+        raise ValueError(f"Error processing RER: {e}")
 
 
 def main(): 
