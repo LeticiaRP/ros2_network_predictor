@@ -141,10 +141,75 @@ def compute_failure_threshold(deadline):
     return deadline
 
 
+def compute_effective_frequency(a_t_ms, W): 
+    """
+    Eq. 13: Effective publishing rate 
+
+    Computes the effective publishing frequency in Hz over a sliding window of W messages
+
+    Arguments: 
+        - a_t_ms: Array of message inter-arrival times in ms
+        - W: Sliding window size 
+    
+    Returns: 
+        - float: Effective publishing frequency in Hz
+    """
+
+    try: 
+        if len(a_t_ms) == 0: 
+            return 0 
+
+        # select the window
+        window_ms = a_t_ms[-W:]
+        window_size = len(window_ms)
+
+
+        elapsed_time = (np.sum(a_t_ms)) / 1000.0        # conversion from ms to s
+
+        if elapsed_time <=0: 
+            raise ValueError(f"Invalid value of elapsed time -> {elapsed_time}")
+            return 0.0 
+
+        return window_size/elapsed_time
+
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the effective frequency: {e}")
+
+
+
+
+
+
+def compute_frequency_risk (f_nom, f_eff, tau_f=0.1):
+    """
+    Eq. 14: Frequency risk 
+
+    Computes the normalized frequency risk score r_F in [0,1] based on the effective publishing rate deficit 
+
+    Arguments: 
+        - f_nom: Nominal publishing frequency in Hz
+        - f_eff: Measured effective publishing frequency in Hz 
+        - tau_f: Relative tolerance band below nominal frequency 
+    
+    Returns: 
+        - np.array: Normalized latenc risk values clipped between 0.0 (safe) and 1.0 (failure)
+    """
+
+    if f_nom <= 0: 
+        return np.zeros(f_nom, dtype=float)
+
+    # normalize frequency drop relative to the allowable tolerance band 
+    r_F = (f_nom - f_eff) / (tau_f * f_nom)
+
+    return np.clip(r_F, 0.0, 1.0)
+    
+
+
 
 def compute_latency_risk(latency_p95_preds, tau, F): 
     """
-    Eq. 15: Latency risk 
+    Eq. 16: Latency risk 
 
     Computes the normalized latency risk score r_L in [0,1] based on the P95 latency prediction 
 
