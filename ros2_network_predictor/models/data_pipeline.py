@@ -5,7 +5,6 @@ import logging
 import pandas as pd
 import numpy as np
 import torch 
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 
 
@@ -374,11 +373,7 @@ class MultiHorizonDataset(Dataset):
 
 def build_dataloader(folder_path, batch_size = 64, shuffle = True):
 
-    """# -------- Horizons (model's output) ------------------
-HORIZONS = [1, 5, 10, 20]
-HORIZON_MAX = max(HORIZONS)
-
-
+    """
     Loads all CSVs files from a directory, proccess telemetry features into sliding windows and returns 
     a PyTorch DataLoader 
 
@@ -442,3 +437,6 @@ HORIZON_MAX = max(HORIZONS)
         num_workers=4, 
         pin_memory=True
     )
+
+
+
