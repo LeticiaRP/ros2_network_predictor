@@ -315,6 +315,82 @@ np.clip(ri, 0.0, 1.0)
 
 
 
+def compute_composite_risk_index(r_L, r_F, r_P, w_F = 0.2, w_P = 0.2): 
+    """
+    Eq. 18: Composite risk index 
+
+    Aggregates latency, frequency, packet-loss risks into a unified Risk Index using a weighted 
+    noisy-OR reliability formulation
+
+    Arguments: 
+        - r_L: latency risk bounded in [0.0, 1.0]
+        - r_F: frequency risk bounded in [0.0, 1.0] 
+        - r_P: packet-loss risk bounded in [0.0, 1.0]
+        - w_F: weight factor applied to the frequency risk 
+        - w_P: weight factor applied to the packet-loss risk 
+    
+    Returns: 
+        - RI: aggregated Composite Risk Index bounded within [0.0, 1.0].
+    """
+
+    RI = 1 - (1 - r_L)*(1 - w_F*r_F)*(1 - w_P*r_P)
+    RI = np.clip(RI, 0.0, 1.0)
+
+    return RI
+
+
+
+def compute_true_failures(latency, D_ms): 
+    """
+    Ground-truth failure identification 
+
+    Determines the extact time steps where observed end-to-end latency violates 
+    (exceeds) the maximum allowable deadline D
+
+    Arguments: 
+        - latency: Array of measured packet latencies in ms
+        - D: maximum allowable latency deadline in ms 
+    
+    Returns: 
+        - Boolean array where True indicates a deadline violation 
+    """
+
+    return latency >= D_ms
+
+
+def compute_TRF(RI, theta_eval = 0.7): 
+    """
+    Eq. 19: Time-in-Risk Fraction
+
+    Computes the proportion of total observation steps during which the Composite Risk Index (RI)
+    meets or exceeds the evaluation thresholds theta_eval 
+
+    Arguments: 
+        - RI: Risk Index Composite, with values in [0.0, 1.0]
+        - theta_eval: Risk threshold defining an active high-risk state 
+    
+    Returns: 
+        - TRF: Fraction of total time spend in a high-risk state
+    """
+
+    try: 
+        if (len(RI)) == 0: 
+            raise ValueError(f"The RI array is empty!")
+
+        # identify the steps where the risk index exceeds the evaluation threshold
+        risk_exceeded = RI >= theta_eval
+
+        # compute the fraction of samples in risk over total observation length T
+        TRF = np.sum(risk_exceeded) / len(RI)
+
+        return TRF
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the TRF: {e}")
+
+
+
+
 def main(): 
     """
     Loads trained TCN weights, runs test set inference and performs a sanity check on output 
