@@ -386,16 +386,18 @@ def compute_TRF(RI, theta_eval = 0.7):
 
 
 
-def compute_RER(RI, true_failures, tau_F, theta_eval=0.7):
+def compute_RER(RI, true_failures, h, theta_eval=0.7):
     """
+    Eq. 20: Risk exceedance rate 
+
     Computes the false-alarm fraction, that is, the proportion of risk alerts (RI >= theta_eval) that 
     were NOT followed by an atual deadline failure within the look-ahead horizon 
 
     Arguments: 
         - RI: Risk Index Composite with values in [0.0, 1.0]
         - true_failures: Boolean array indicating actual deadline violations 
+        - h: Prediction horizon in time steps defining the forward window size
         - theta_eval: Risk threshold triggering an alert 
-        - tau_f: look-ahead prediction horizon in time steps
     
     Returns: 
         - RER: False-alarm rate
@@ -418,8 +420,8 @@ def compute_RER(RI, true_failures, tau_F, theta_eval=0.7):
         # evaluate each alert against the subsequent look-ahead window
         for t in alarm_indices: 
 
-            # slice future failures states, clamping to array lenght N to avoid out-of-bounds 
-            future_window = true_failures[t : min(t + tau_F + 1, N)]
+            end_window = min(t + h + 1, N)
+            future_window = true_failures[t + 1 : end_window]
 
             # count as a false alarms if no true failure materializes within the horizon
             if not np.any(future_window): 
@@ -432,6 +434,98 @@ def compute_RER(RI, true_failures, tau_F, theta_eval=0.7):
 
     except Exception as e: 
         raise ValueError(f"Error processing RER: {e}")
+
+
+
+def compute_fail_coverage(RI, true_failures, h, theta_eval = 0.7): 
+    """
+    Eq. 21: Failure coverage 
+
+    Computes the faction of actual deadline failures that were preceded by at least one risk alert (RI >= theta_eval)
+    within the loop-back prediction 
+
+    Arguments: 
+        - RI: Risk Index Composite with values in [0.0, 1.0]
+        - true_failures: Boolean array indicating actual deadline violations 
+        - h: Prediction horizon in time steps defining the forward window size
+        - theta_eval: Risk threshold triggering an alert 
+    
+    Returns: 
+        - coverage: fraction of true values antecipated by an alert
+    """
+
+    try: 
+
+        # find all indices where the risk index triggers an alert
+        risk_exceeded = RI >= theta_eval
+        failure_indices = np.where(true_failures)[0]
+
+        if len(failure_indices): 
+            return 1.0          # if there is any failures the cover is 100%
+
+        covered_failures = 0 
+
+        for t in failure_indices: 
+            start_window = max(0, t-h)
+            past_window = risk_exceeded[start_window : t]
+
+            if np.any(past_window): 
+                covered_failures += 1
+
+            coverage = covered_failures / len(failure_indices)
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the fail_coverage: {e}")
+
+
+def compute_warning_reliability(RI, true_failures, theta_eval, h): 
+    """
+    Eq. 22: Warning reliability 
+
+    Computes predictive precision: the fraction of the risk alerts (RI >= theta_eval) that are followed by at 
+    one true deadline failure within the strictly future look-ahead horizon 
+
+    Arguments: 
+        - RI: Risk Index Composite with values in [0.0, 1.0]
+        - true_failures: Boolean array indicating actual deadline violations 
+        - theta_eval: Risk threshold triggering an alert 
+        - h: Prediction horizon in time steps defining the forward window size
+
+    Returns: 
+        - reliability: Fraction of alerts confirmed by a subsequent failure 
+    """
+
+    try: 
+
+        # find all indices where the risk index triggers an alert
+        risk_exceeded = RI >= theta_eval
+        alarm_indices = np.where(risk_exceeded)[0]
+
+
+        # perfect reliability when no alarms were raised
+        if len(alarm_indices) == 0: 
+            return 1.0
+
+        true_alarms = 0
+        N = len(RI)
+
+        # evaluate each alarm against the strictly future window 
+        for t in alarm_indices: 
+
+            # clamp the upper bound to array lenght N
+            end_window = min(t + h + 1, N)
+            future_window = true_failures[t +1 : end_window]
+
+            # count as true warning if at least one failure occurs within the horizon 
+            if np.any(future_window): 
+                true_alarms += 1
+
+        reliability = true_alarms / len(alarm_indices)
+        return reliability
+
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the warning reliability: {e}")
 
 
 def main(): 
