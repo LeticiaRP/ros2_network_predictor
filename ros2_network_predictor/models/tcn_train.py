@@ -107,7 +107,7 @@ def train_model(train_loader, val_loader):
         if avg_val_loss < best_val_loss: 
             best_val_loss = avg_val_loss
             patience_counter = 0
-            torch.save(model.state_dict(), "best_tcn_model.pth")
+            torch.save(model.state_dict(), "saved_models/best_tcn_model.pth")
             logging.info(" -> Best model saved!")
 
         else: 
