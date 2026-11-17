@@ -157,7 +157,7 @@ def compute_effective_frequency(a_t_ms, W):
 
     try: 
         if len(a_t_ms) == 0: 
-            return 0 
+            raise ValueError(f"The a_t_ms vector is empty!")
 
         # select the window
         window_ms = a_t_ms[-W:]
@@ -168,7 +168,6 @@ def compute_effective_frequency(a_t_ms, W):
 
         if elapsed_time <=0: 
             raise ValueError(f"Invalid value of elapsed time -> {elapsed_time}")
-            return 0.0 
 
         return window_size/elapsed_time
 
@@ -196,13 +195,20 @@ def compute_frequency_risk (f_nom, f_eff, tau_f=0.1):
         - np.array: Normalized latenc risk values clipped between 0.0 (safe) and 1.0 (failure)
     """
 
-    if f_nom <= 0: 
-        return np.zeros(f_nom, dtype=float)
+    try: 
 
-    # normalize frequency drop relative to the allowable tolerance band 
-    r_F = (f_nom - f_eff) / (tau_f * f_nom)
+        if f_nom <= 0.0 or f_eff<=0.0: 
+            raise ValueError(f"Invalid frequency value! f_nom: {f_nom} | f_eff: {f_eff}")
 
-    return np.clip(r_F, 0.0, 1.0)
+        # normalize frequency drop relative to the allowable tolerance band 
+        r_F = (f_nom - f_eff) / (tau_f * f_nom)
+
+        return np.clip(r_F, 0.0, 1.0)
+
+    
+    except Exception as e:
+        raise ValueError(f"Error processing the frequency risk: {e}")
+
     
 
 
@@ -222,15 +228,17 @@ def compute_latency_risk(latency_p95_preds, tau, F):
         - np.array: Normalized latency risk values clipped between 0.0 (safe) and 1.0 (failure)
     """
 
-    if (F - tau) == 0: 
-        return np.zeros(latency_p95_preds, dtype=float)
+    try: 
+        if (F - tau) == 0: 
+            raise ValueError(f"Invalid division by 0!")
 
-    # linear interpolation between tau and F 
-    ri = (latency_p95_preds - tau) / (F - tau)
+        # linear interpolation between tau and F 
+        ri = (latency_p95_preds - tau) / (F - tau)
 
-    return np.clip(ri, 0.0, 1.0)
+        return np.clip(ri, 0.0, 1.0)
 
-
+    except Exception as e: 
+        raise ValueError(f"Error processing the latency frequency: {e}")
 
 
 
