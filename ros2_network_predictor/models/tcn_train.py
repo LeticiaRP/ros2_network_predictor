@@ -124,17 +124,33 @@ def train_model(train_loader, val_loader):
 
 def main(): 
 
+    """
+    Orchestrades the end-to-end training pipeline by building and validation 
+    DataLoaders and launching the TCN model training loop 
+
+    Arguments: 
+        - None 
+    
+    Results: 
+        - None 
+    """
+
+    # path to training and validation dataset 
     TRAIN_DIR = "../../data/train"
     VAL_DIR   = "../../data/val"
-    
+
+    # log hardware target and initialize pytorch 
     logging.info(f"Using device: {DEVICE}")
     logging.info("1. Building DataLoaders...")
-    
+
+    # suffle training batches to prevent order bias; keep validation deterministic 
     train_loader = build_dataloader(TRAIN_DIR, batch_size=BATCH_SIZE, shuffle=True)
     val_loader   = build_dataloader(VAL_DIR, batch_size=BATCH_SIZE, shuffle=False)
 
+    # initialize the TCN model and run the training/validation loop 
     logging.info("2. Starting Training...")
-    model = train_model(train_loader, val_loader)
+    
+    train_model(train_loader, val_loader)
 
 
 
