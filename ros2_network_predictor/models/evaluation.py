@@ -141,6 +141,8 @@ def compute_failure_threshold(deadline):
     return deadline
 
 
+
+
 def compute_effective_frequency(a_t_ms, W): 
     """
     Eq. 13: Effective publishing rate 
@@ -157,7 +159,7 @@ def compute_effective_frequency(a_t_ms, W):
 
     try: 
         if len(a_t_ms) == 0: 
-            raise ValueError(f"The a_t_ms vector is empty!")
+            raise ValueError(f"The a_t_ms array is empty!")
 
         # select the window
         window_ms = a_t_ms[-W:]
@@ -177,12 +179,50 @@ def compute_effective_frequency(a_t_ms, W):
 
 
 
-
-
-
-def compute_frequency_risk (f_nom, f_eff, tau_f=0.1):
+def packet_loss_rate(delta_sigma_array, W): 
     """
-    Eq. 14: Frequency risk 
+    Eq. 14: Measured packet loss rate 
+
+    Computes the observed packet loss rate p(t) over a sliding window of W received packets using 
+    sequence deltas (delta_sigma), treating out-of-order packets as lost. 
+
+    Arguments: 
+        - delta_sigma_array: Array of sequence delta for lost packets
+        - W: sliding window size 
+
+    Returns: 
+        - p_loss: estimated packet loss rate 
+    """
+
+    try: 
+
+        if len(delta_sigma_array) == 0: 
+            raise ValueError(f"The delta_sigma array is empty!")
+
+        # sequence number of the current packet (t) and the packet W steps earlier (t-W)
+        sigma_t = delta_sigma_array[-1]
+        sigma_t_w = delta_sigma_array[-W -1]
+
+        # total expected packages 
+        total_expected = sigma_t - sigma_t_w
+
+        if total_expected <= 0: 
+            raise ValueError(f"Total messages expected are invalid! The interval is 0 or negative!")
+
+        total_losses = np.sum(delta_sigma_array)
+
+        p_loss = total_losses / total_expected
+
+        return p_loss
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the packet loss rate: {e}")
+
+
+
+def compute_frequency_risk(f_nom, f_eff, tau_f=0.1):
+    """
+    Eq. 15: Frequency risk 
 
     Computes the normalized frequency risk score r_F in [0,1] based on the effective publishing rate deficit 
 
@@ -192,7 +232,7 @@ def compute_frequency_risk (f_nom, f_eff, tau_f=0.1):
         - tau_f: Relative tolerance band below nominal frequency 
     
     Returns: 
-        - np.array: Normalized latenc risk values clipped between 0.0 (safe) and 1.0 (failure)
+        - r_F: Normalized latenc risk values clipped between 0.0 (safe) and 1.0 (failure)
     """
 
     try: 
@@ -202,23 +242,55 @@ def compute_frequency_risk (f_nom, f_eff, tau_f=0.1):
 
         # normalize frequency drop relative to the allowable tolerance band 
         r_F = (f_nom - f_eff) / (tau_f * f_nom)
+        r_F = np.clip(r_F, 0.0, 1.0)
 
-        return np.clip(r_F, 0.0, 1.0)
+        return r_F
 
     
     except Exception as e:
         raise ValueError(f"Error processing the frequency risk: {e}")
 
-    
+
+
+
+def compute_packet_loss_risk(p_loss, p_fail):
+    """
+    Eq. 16: Packet loss risk
+
+    Normalizes the mesured packet loss rate p(t) against the critical failure threshold p_fail 
+    and clips the resulting r_P to the [0,1] interval.
+
+    Arguments: 
+        - p_loss: Measured packet loss rate
+        - p_fail: Critical packet loss threshold representing maximum tolerable loss 
+
+    Returns: 
+        - r_P: Normalized packet-loss risk bounded within [0.0, 1.0]
+    """
+
+    try: 
+        if p_fail <= 0: 
+            raise ValueError(f"Invalid p_fail value!")
+
+        # normalize observed loss rate relative to the failure threshold
+        r_P = p_loss/p_fail
+        r_P = np.clip(r_P, 0.0, 1.0)
+
+        return r_P
+
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the packet loss risk: {e}")
+
 
 
 
 def compute_latency_risk(latency_p95_preds, tau, F): 
     """
-    Eq. 16: Latency risk 
+    Eq. 17: Latency risk 
 
     Computes the normalized latency risk score r_L in [0,1] based on the P95 latency prediction 
-
+np.clip(ri, 0.0, 1.0)
     Arguments: 
         - latency_p95_preds: Array of scalar of 95th percentile (P95) latency prediction in ms 
         - tau: Safe operational latency threshold in ms
@@ -233,9 +305,10 @@ def compute_latency_risk(latency_p95_preds, tau, F):
             raise ValueError(f"Invalid division by 0!")
 
         # linear interpolation between tau and F 
-        ri = (latency_p95_preds - tau) / (F - tau)
+        r_L = (latency_p95_preds - tau) / (F - tau)
+        r_L = np.clip(r_L, 0.0, 1.0)
 
-        return np.clip(ri, 0.0, 1.0)
+        return r_L
 
     except Exception as e: 
         raise ValueError(f"Error processing the latency frequency: {e}")
