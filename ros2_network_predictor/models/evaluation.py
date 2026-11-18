@@ -456,7 +456,7 @@ def compute_fail_coverage(RI, true_failures, h, theta_eval = 0.7):
 
     try: 
 
-        # find all indices where the risk index triggers an alert
+        # find all indices where the risk index triggers an failure
         risk_exceeded = RI >= theta_eval
         failure_indices = np.where(true_failures)[0]
 
@@ -528,39 +528,145 @@ def compute_warning_reliability(RI, true_failures, theta_eval, h):
         raise ValueError(f"Error processing the warning reliability: {e}")
 
 
-def main(): 
+
+def compute_mean_detection_delay(RI, true_failures, h, theta_eval = 0.7): 
     """
-    Loads trained TCN weights, runs test set inference and performs a sanity check on output 
-    shapes and sample predictions  
+    Eq. 23: Mean detection delay (lead time)
+
+    Computes the average advance warning time (in time steps) between the earliest risk index
+    within the loop-back window and the actual deadline failure occured at step t
+
+    Arguments: 
+        - RI: Risk Index Composite with values in [0.0, 1.0]
+        - true_failures: Boolean array indicating actual deadline violations 
+        - theta_eval: Risk threshold triggering an alert 
+        - h: Prediction horizon in time steps defining the forward window size
+
+    Returns: 
+        - mean_delay = Mean advance warning lead time in steps 
     """
 
-    TEST_DIR = "../../data/test"
-    MODEL_PATH = "saved_models/best_tcn_model.pth"
+    try: 
+        
+        # find all indices where the risk index triggers an failure
+        risk_exceeded = RI >= theta_eval
+        failure_indices = np.where(true_failures)[0]
+
+        # return 0.0 if no true failures occured
+        if len(failure_indices) == 0: 
+            logging.info(f"Any failures have occured!")
+            return 0
+
+        detection_delays = []
 
 
-    # initalize model architecure and load trained weights onto target device 
-    model = TCN(
-        input_dim=N_INPUTS, 
-        num_horizons= N_HORIZONS, 
-        num_quantiles= N_QUANTILES).to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+        # measure advance warning lead-time for each true failure
+        for t in failure_indices: 
 
-    # execute the inference
-    logger.info("Starting evaluation pipeline .... ")
-    test_results = run_interface(model, TEST_DIR)
+            # define look-back window
+            start_window = max(0, t-h)
+            past_window = risk_exceeded[start_window : t]
 
-    # 3. Sanity check: inspect output tensor shapes and sample median (P50) predictions
-    if test_results:
-        sample = test_results[0]
-        print("\n--- Sample Prediction Check ---")
-        print(f"File: {os.path.basename(sample['filepath'])}")
-        print(f"Predictions shape: {sample['preds'].shape} (Expected: [N, 4, 3])")
-        # Index [0, :, 1] -> 1st sliding window, all 4 horizons, 2nd quantile (P50 median)
-        print(f"Sample P50 predictions (median): {sample['preds'][0, :, 1]}")
-        print(f"Sample real latency sequence (first 5): {sample['latency_real'][:5]}")
-    else:
-        logger.error("No results generated. Check test directory.")
+            # if at least one alert occured in the window, find the earlist one 
+            if np.any(past_window): 
+                fist_alarm_idx = np.where(past_window)[0][0]
+                t_alarm = start_window + fist_alarm_idx
+
+                # record the lead time 
+                detection_delays.append(t - t_alarm)
+
+        mean_delay = np.mean(detection_delays) if detection_delays else 0.0
+
+        
+        return mean_delay
 
 
-if __name__=='__main__': 
-    main()
+    except Exception as e: 
+        raise ValueError(f"Error processing the warning mean detection delay {e}")
+
+
+
+def compute_msis(y_true, y_pred_lower, y_pred_upper, alpha=0.10): 
+    """
+    Eq. 22: Mean scaled interval score (MSIS)
+
+    Evaluates the quality of probabilistic prediction intervals by balancing interval
+    sharpness (width) against coverage panalties when observations fall outside 
+    the prediction bounds, normalized by the in-sample naive forecaster
+
+    Arguments: 
+        - y_true: Array of observed ground-truth latency values 
+        - y_pred_lower: Array of predicted lower quantile bounds (P05)
+        - y_pred_upper: Array od predicted upper quantile bounds (P95)
+        - alpha: Significance level defining the (1-alpha) prediction interval 
+    """
+
+    N = len(y_true)
+
+    # requires at least 2 observations
+    if N < 2: 
+        return 0.0
+
+    # measure the width of each predicted confidence interval 
+    interval_width = y_pred_upper - y_pred_lower
+
+    # apply vectorized indicator penalties whenever Y_i falls outside 
+    penalty_lower = np.where(y_true < y_pred_lower, (2.0/alpha) * (y_pred_lower - y_true), 0.0)
+    penalty_upper = np.where(y_true > y_pred_upper, (2.0/alpha) * (y_true - y_pred_upper), 0.0)
+
+    # average the combined interval scores across all N times steps 
+    score_num = np.sum(interval_width + penalty_lower + penalty_upper)
+    mean_score = score_num / N 
+
+    # mean absolute error 
+    naive_error = np.mean(np.abs(np.diff(y_true)))
+
+    if naive_error == 0: 
+        return mean_score
+
+    # normalized interval 
+    msis = mean_score/naive_error
+    return msis 
+
+
+
+def compute_horizon_scaling_law(msis_results, horizons): 
+    """
+    Eq. 23: Horizon-scaling law
+
+    Fits a linear regression in log-log space to estimate the power-law degradation 
+    exponent (gamma) of the Mean Scaled Interval Score (MSIS) as the prediction 
+    horizon h increases: 
+
+    Arguments: 
+        - msis_results: Computed MSIS value for each h horizon
+        - horizons: predicted horizon
+    
+    Returns: 
+        - gamma: slop of the log-log representing the accuracy degradation rate
+        - log_msis_1: intercept of the log-log fit, representating ln(MSIS) at horizon 
+    """
+
+    try: 
+
+        # extract and align value strictly matching the order of horizons
+        msis_values = np.array([msis_results[horizons] for h in horizons])
+        h_values = np.array(horizons)
+
+        # guard against non-positive values
+        if np.any(msis_results <= 0): 
+            raise ValueError("MSIS contains values <= 0; cannot compute the ln!")
+
+        log_msis = np.log(msis_values)
+        log_h = np.log(h_values)
+
+        # fit a first-degree polynomial (y = ax + b) where a = gamma and b = ln 
+        coefficients = np.polyfit(log_h, log_msis, 1)
+        gamma = coefficients[0]
+        log_msis_1 = coefficients[1]
+
+        return gamma, log_msis_1
+
+    except Exception as e:    
+        raise ValueError(f"Error processing scaling law: {e}")
+
