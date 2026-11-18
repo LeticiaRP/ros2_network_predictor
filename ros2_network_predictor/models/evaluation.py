@@ -738,7 +738,7 @@ def compute_realized_lead_time(a_t_array, h):
 
 
 
-def compute_trustworthiness_score (c_fail, r_warn):
+def compute_trustworthiness_score(c_fail, r_warn):
     """
     Eq. 28: Trustworthiness score
 
@@ -764,3 +764,86 @@ def compute_trustworthiness_score (c_fail, r_warn):
         raise ValueError(f"Error processing the trustworthiness score: {e}")
 
 
+def compute_pareto(trust_dict, lead_time_dict): 
+    """
+    Eq. 29: Pareto set 
+
+    Identifies the set of horizons that offer the best trade-off between 
+    trustworthiness U_trust (higher is better) and lead-time (higher is better).
+
+    Arguments: 
+        - u_trust: trustworthiness_score
+        - lead_time: lead-time of each horizon 
+
+    Returns:
+        - pareto_set
+    """
+
+    try: 
+
+        pareto_set = []
+        horizons = list(trust_dict.keys())
+
+        for h in horizons:
+            is_dominated = False
+            
+            for other_h in horizons:
+                if h == other_h:
+                    continue
+                    
+                # A point is dominated if another point has:
+                # - Higher or equal trustworthiness (better accuracy)
+                # - Higher or equal lead-time (more time)
+                # - And is strictly better in at least one dimension.
+                if (trust_dict[other_h] >= trust_dict[h] and 
+                    lead_time_dict[other_h] >= lead_time_dict[h] and 
+                    (trust_dict[other_h] > trust_dict[h] or lead_time_dict[other_h] > lead_time_dict[h])):
+                    
+                    is_dominated = True
+                    break
+                    
+            if not is_dominated:
+                pareto_set.append(h)
+                
+        return sorted(pareto_set)
+
+    except Exception as e: 
+        raise ValueError(f"Error processing pareto set: {e}")
+
+
+
+def lead_time_efficiency(trust_h, trust_hmax, lead_time_h):
+    """
+    Eq. 30: lead-time efficiency 
+
+    Quantifies the loss of warning realibility per unit of physical lead time  
+
+    Arguments: 
+        - trust_h: Trustworthiness score U_trust(h) for the current horizon.
+        - trust_hmax: Trustworthiness score U_trust(h_max) for the maximum horizon.
+        - lead_time_h: Nominal physical lead time for horizon h (in ms).
+    
+    Returns: 
+        - eta: lead time efficiency 
+    """ 
+
+    try: 
+
+        if lead_time_h <= 0: 
+            raise ValueError(f"Invalid lead-time! Dividing by zero!")
+
+        eta = (trust_hmax - trust_h)/lead_time_h
+
+        return eta
+
+    except Exception as e: 
+        raise ValueError(f"Error processig lead-time efficiency: {e}")
+
+
+def compute_weighted_utility():
+    """
+    Eq. 31 Weighted utility
+
+    Calculates a utility score for a given horizon based on the application's 
+    priority (alpha) between accuracy and lead time
+    """
