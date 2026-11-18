@@ -670,3 +670,32 @@ def compute_horizon_scaling_law(msis_results, horizons):
     except Exception as e:    
         raise ValueError(f"Error processing scaling law: {e}")
 
+
+
+def compute_lead_time(h, freq_hz):       # nominal lead time
+    """
+    Eq. Nominal physical lead time
+
+    Calculates the theoretical physical lead time for horizon h, assuming the network 
+    operates exactly at the configured frequency (no jitter)
+
+    Arguments: 
+        - h: forecast horizon (steps)
+        - freq_hz: nominal freq_hz in Hz
+    
+    Returns: 
+        - lead_time_nom: nominal lead-time in ms
+    """
+
+    try: 
+        if freq_hz <= 0: 
+            raise ValueError(f"Invalid frequency value!")
+
+        delta_ms = 1000 / freq_hz
+
+        lead_time_nom = delta_ms * h
+
+        return lead_time_nom
+
+    except Exception as e: 
+        raise ValueError(f"Error processing nominal lead time: {e}")
