@@ -4,6 +4,7 @@ import tqdm
 import torch
 import logging
 import numpy as np
+import pandas as pd
 
 from data_pipeline import metadata_from_filename, load_raw_data, compute_features, compute_sliding_window
 from data_pipeline import WINDOW_SIZE, HORIZON_MAX
@@ -674,7 +675,7 @@ def compute_horizon_scaling_law(msis_results, horizons):
 
 def compute_lead_time(h, freq_hz):       # nominal lead time
     """
-    Eq. Nominal physical lead time
+    Eq. 26: Nominal physical lead time
 
     Calculates the theoretical physical lead time for horizon h, assuming the network 
     operates exactly at the configured frequency (no jitter)
@@ -699,3 +700,38 @@ def compute_lead_time(h, freq_hz):       # nominal lead time
 
     except Exception as e: 
         raise ValueError(f"Error processing nominal lead time: {e}")
+
+
+
+def compute_realized_lead_time(a_t_array, h): 
+    """
+    Eq. 27: Realized lead-time
+
+    Calculates the sum of inter-arrival timer over the next h steps to obtain the 
+    actual physical time elapsed, accounting for network jitter. 
+
+    Arguments;
+        - a_t_array: array with the inter-arrival times in ms 
+        - h: forecast horizon (steps)
+
+    Returns: 
+        - lead_time_exec = executed/realized lead time in ms  
+    """
+
+    try: 
+        if len(a_t_array) == 0: 
+            raise ValueError(f"The `a_t_array` is empty!")
+
+        # convert to panda series facillitate the operations 
+        a_t_series = pd.Series(a_t_array)
+
+        # the sum is represented as the rolling sum of the future 
+        lead_time_exec = a_t_series.iloc[::-1].rolling(window=h, min_periods=1).sum().iloc[::-1]
+
+        # shift by 1 so that index t represents the sum from t+1 to t+h
+        lead_time_exec = lead_time_exec.shift(-1)
+
+        return lead_time_exec.values
+
+    except Exception as e: 
+        raise ValueError(f"Error processing realized lead time: {e}")
