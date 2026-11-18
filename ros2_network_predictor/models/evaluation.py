@@ -735,3 +735,32 @@ def compute_realized_lead_time(a_t_array, h):
 
     except Exception as e: 
         raise ValueError(f"Error processing realized lead time: {e}")
+
+
+
+def compute_trustworthiness_score (c_fail, r_warn):
+    """
+    Eq. 28: Trustworthiness score
+
+    Quantifies the reliability of the forecast at horizon h 
+
+    Arguments: 
+        - c_fail: failure coverage at horizon h
+        - r_warn: warning coverage at horizon h
+    
+    Returns: 
+        - u_trust: trade-off quantification between the anticipation and reliability
+    """
+
+    try: 
+        if c_fail == 0 and r_warn == 0: 
+            return 0
+
+        u_trust = 2 * (c_fail * r_warn)/(c_fail + r_warn)
+        return u_trust
+
+
+    except Exception as e: 
+        raise ValueError(f"Error processing the trustworthiness score: {e}")
+
+
