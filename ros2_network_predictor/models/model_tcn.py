@@ -266,7 +266,13 @@ class LossFunction(nn.Module):
             pinball = torch.max((q-1)*errors, q*errors).squeeze(-1)
 
             # weight by horizon importance and average across batch and horizons
-            loss += (pinball * self.horizon_weights).mean()
+            if q == 0.95:
+                q_weight = 10.0
+            elif q == 0.50:
+                q_weight = 2.0
+            else:
+                q_weight = 1.0
+            
+            loss += q_weight * (pinball * self.horizon_weights).mean()
 
         return loss 
-
