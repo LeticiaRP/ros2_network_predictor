@@ -840,10 +840,31 @@ def lead_time_efficiency(trust_h, trust_hmax, lead_time_h):
         raise ValueError(f"Error processig lead-time efficiency: {e}")
 
 
-def compute_weighted_utility():
+def compute_weighted_utility(trust_h, lead_time_h, lead_time_hmax, alpha):
     """
     Eq. 31 Weighted utility
 
-    Calculates a utility score for a given horizon based on the application's 
-    priority (alpha) between accuracy and lead time
+    Calculates a utility score based on the application's priority (alpha) 
+    between warning reliability and physical lead time.
+
+    Arguments: 
+        - trust_h: Trustworthiness score for the horizon h 
+        - lead_time_h: Lead time for horizon h (ms)
+        - lead_time_hmax: Lead time for the maximum horizon (h_max)
+        - alpha: weight [0,1].  1 = only reliability matters,  0 = only lead time matters 
+    
+    Returns: 
+        - utility score
     """
+
+    try: 
+
+        if lead_time_hmax <= 0: 
+            raise ValueError(f"Invalid zero/negative value of the lead_time_max!")
+
+        utility = (alpha * trust_h) + (1 - alpha)*(lead_time_h/lead_time_hmax)
+
+        return utility
+
+    except Exception as e: 
+        raise ValueError(f"Error processing weighted-utlity: {e}")
