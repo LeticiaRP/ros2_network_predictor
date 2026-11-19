@@ -1016,3 +1016,75 @@ def compute_rolling_range(RI, W):
     rolling_range = rolling_max - rolling_min
     return rolling_range
 
+
+
+def compute_time_averaged_cv(cv: pd.Series, w): 
+    """
+    Eq. 38: Time-averaged relative variability
+
+    Arguments: 
+        - cv: coefficient of variation 
+        - w: window
+
+    Return: 
+        - cv_average
+    """
+
+    cv_window = cv.iloc[w - 1:]
+    cv_average = cv_window.mean()
+
+    return cv_average
+
+
+
+
+def compute_p95_cv(cv, w): 
+    """
+    Eq. 39: 95th Percentile of Relative Variability
+
+    Arguments: 
+        - cv: coefficient of variation 
+        - w: window
+
+    Return: 
+        - cv_average
+    """
+
+    cv_window = cv.iloc[w - 1:]
+    cv_95 = cv_window.quantile(0.95)
+    return cv_95
+
+
+
+def compute_lsi(RI): 
+    """
+    Eq. 40: Longitudinal stability index
+
+    Measures the fraction of time the Risk Index stays within two standard 
+    deviations of its global mean
+
+    Arguments: 
+        - RI: risk index
+    
+    Returns: 
+        - LSI value 
+    """ 
+
+    try: 
+
+        if len(RI) == 0: 
+            raise ValueError(f"THe RI array empty!")
+
+        global_mean = np.mean(RI)
+        global_std = np.std(RI)
+
+        if global_std == 0: 
+            return 1.0
+
+        LSI = (np.sum( (np.abs(RI - global_mean) <= (2.0 *global_std)))) / len(RI)
+
+        return LSI
+
+    
+    except Exception as e: 
+        raise ValueError(f"Error processing LSI: {e}")
