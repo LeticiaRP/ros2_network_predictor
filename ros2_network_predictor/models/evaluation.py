@@ -6,12 +6,18 @@ import logging
 import numpy as np
 import pandas as pd
 
+import visualization
+
+import matplotlib
+
+
 from data_pipeline import metadata_from_filename, load_raw_data, compute_features, compute_sliding_window
 from data_pipeline import WINDOW_SIZE, HORIZON_MAX
 from model_tcn import TCN, N_INPUTS, N_HORIZONS, N_QUANTILES
 
 logger = logging.getLogger("[EVALUATION]")
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -198,24 +204,23 @@ def packet_loss_rate(delta_sigma_array, W):
             raise ValueError(f"The delta_sigma array is empty!")
 
         # sequence number of the current packet (t) and the packet W steps earlier (t-W)
-        sigma_t = delta_sigma_array[-1]
-        sigma_t_w = delta_sigma_array[-W -1]
+        window = delta_sigma_array[-W:] if len(delta_sigma_array) >= W else delta_sigma_array
+
 
         # total expected packages 
-        total_expected = sigma_t - sigma_t_w
+        total_losses = np.sum(window)
+
+        packets_received = len(window)
+        total_expected = packets_received + total_losses
 
         if total_expected <= 0: 
-            raise ValueError(f"Total messages expected are invalid! The interval is 0 or negative!")
-
-        total_losses = np.sum(delta_sigma_array)
+            return 0.0
 
         p_loss = total_losses / total_expected
-
-        return p_loss
+        return np.clip(p_loss, 0.0, 1.0)
 
     except Exception as e: 
         raise ValueError(f"Error processing the packet loss rate: {e}")
-
 
 
 def compute_frequency_risk(f_nom, f_eff, tau_f=0.1):
@@ -461,7 +466,7 @@ def compute_fail_coverage(RI, true_failures, h, theta_eval = 0.7):
         risk_exceeded = RI >= theta_eval
         failure_indices = np.where(true_failures)[0]
 
-        if len(failure_indices): 
+        if len(failure_indices) == 0: 
             return 1.0          # if there is any failures the cover is 100%
 
         covered_failures = 0 
@@ -473,7 +478,9 @@ def compute_fail_coverage(RI, true_failures, h, theta_eval = 0.7):
             if np.any(past_window): 
                 covered_failures += 1
 
-            coverage = covered_failures / len(failure_indices)
+        coverage = covered_failures / len(failure_indices)
+
+        return coverage
 
     except Exception as e: 
         raise ValueError(f"Error processing the fail_coverage: {e}")
@@ -1144,3 +1151,148 @@ def compute_r2r(sigma_run_array):
         return 0.0
         
     return np.mean(sigma_run_array)
+
+
+
+
+def main():
+    TEST_DIR = "../../data/test"
+    MODEL_PATH = "saved_models/best_tcn_model.pth"
+    HORIZONS = [1, 5, 10, 20]
+    W = 50
+    THETA_EVAL = 0.7
+
+    logger.info("1. Loading Model...")
+    model = TCN(input_dim=N_INPUTS, num_horizons=N_HORIZONS, num_quantiles=N_QUANTILES).to(DEVICE)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+
+    logger.info("2. Running Inference...")
+    test_results = run_interface(model, TEST_DIR)
+
+    logger.info("3. Calculating Metrics per Scenario...")
+    
+    # Dicionários para acumular os resultados de TODOS os arquivos de teste
+    metrics_dict = {
+        "msis": {h: [] for h in HORIZONS},
+        "utrust": {h: [] for h in HORIZONS},
+        "c_fail": {h: [] for h in HORIZONS},
+        "r_warn": {h: [] for h in HORIZONS},
+        "lead_time": {h: [] for h in HORIZONS}
+    }
+    
+    for res in test_results:
+        filepath = res["filepath"]
+        freq_hz = res["freq_hz"]
+        preds = res["preds"]                # Shape: (N, 4, 3)
+        latency_real = res["latency_real"]
+        features = res["features"]
+        
+        N = preds.shape[0]
+        
+        # Alinhando latência real com as janelas do modelo (ignorando os primeiros 49)
+        latency_real_aligned = latency_real[49 : 49 + N]
+        
+        # Thresholds
+        D_ms = compute_deadline(freq_hz)
+        tau = compute_safety_threshold(D_ms)
+        F = compute_failure_threshold(D_ms)
+        
+        # Ground Truth (Falhas reais)
+        true_failures = compute_true_failures(latency_real_aligned, D_ms)
+        
+        # Zero-Order Hold para r_F e r_P
+        r_F_array = np.zeros(N)
+        r_P_array = np.zeros(N)
+        current_r_F, current_r_P = 0.0, 0.0
+        a_t_array = features["a_t"].values
+        delta_sigma = features["delta_seq"].values
+        
+        for t in range(N):
+            if t >= W and (t % W == 0 or t == W):
+                start_idx = max(0, (t + 49) - W)
+                end_idx = t + 49
+                
+                f_eff = compute_effective_frequency(a_t_array[start_idx:end_idx], W)
+                current_r_F = compute_frequency_risk(freq_hz, f_eff)
+                
+                p_loss = packet_loss_rate(delta_sigma[start_idx:end_idx], W)
+                current_r_P = compute_packet_loss_risk(p_loss, p_fail=0.10)
+                
+            r_F_array[t] = current_r_F
+            r_P_array[t] = current_r_P
+
+        # Loop pelos Horizontes
+        for h_idx, h in enumerate(HORIZONS):
+            # 1. Risco de Latência para este horizonte
+            P95_preds = preds[:, h_idx, 2]
+            r_L = compute_latency_risk(P95_preds, tau, F)
+            
+            # 2. Risk Index Composto
+            RI = compute_composite_risk_index(r_L, r_F_array, r_P_array, w_F=0.2, w_P=0.2)
+            
+            # 3. Métricas de Excedência
+            c_fail = compute_fail_coverage(RI, true_failures, h, THETA_EVAL)
+            r_warn = compute_warning_reliability(RI, true_failures, THETA_EVAL, h)
+            
+            # 4. Trustworthiness e Lead-Time
+            u_trust = compute_trustworthiness_score(c_fail, r_warn)
+            lead_time_nom = compute_lead_time(h, freq_hz)
+            
+            # 5. MSIS (Alinhamento Temporal Correto)
+            P05_preds = preds[:, h_idx, 0]
+            
+            if h > 0:
+                y_true_h = latency_real_aligned[h:]
+                P05_h = P05_preds[:-h]
+                P95_h = P95_preds[:-h]
+            else:
+                y_true_h = latency_real_aligned
+                P05_h = P05_preds
+                P95_h = P95_preds
+                
+            msis = compute_msis(y_true_h, P05_h, P95_h, alpha=0.10)
+            
+            # Acumula os resultados globais
+            metrics_dict["msis"][h].append(msis)
+            metrics_dict["utrust"][h].append(u_trust)
+            metrics_dict["c_fail"][h].append(c_fail)
+            metrics_dict["r_warn"][h].append(r_warn)
+            metrics_dict["lead_time"][h].append(lead_time_nom)
+            
+            # Log individual
+            if res == test_results[0] and h == 1:
+                visualization.plot_time_series_analysis(
+                    latency_real=latency_real_aligned,
+                    preds_p95=P95_preds,
+                    RI=RI,
+                    r_L=r_L,
+                    true_failures=true_failures,
+                    D_ms=D_ms,
+                    filename=os.path.basename(filepath)
+                )
+    # ==========================================
+    # FINALIZAÇÃO: Relatório e Gráficos
+    # ==========================================
+    logger.info("4. Generating Reports and Plots...")
+    
+    # 1. Gera o CSV e imprime a tabela formatada no terminal
+    df_final = visualization.generate_final_report(metrics_dict)
+    
+    # 2. Extrai os dicionários para a análise de Pareto
+    msis_dict = dict(zip(df_final["Horizon"], df_final["MSIS"]))
+    trust_dict = dict(zip(df_final["Horizon"], df_final["U_trust"]))
+    lead_time_dict = dict(zip(df_final["Horizon"], df_final["Lead_Time_ms"]))
+    
+    # 3. Gera os gráficos
+    print("\n[PLOT] Generating graphs...")
+    visualization.plot_trade_off(df_final)
+    
+    pareto_set = compute_pareto(trust_dict, lead_time_dict)
+    visualization.plot_pareto(df_final, pareto_set)
+    visualization.plot_horizon_scaling(msis_dict)
+    
+    print("\n[PLOT] All graphs successfully saved to ../../results/")
+
+
+if __name__ == '__main__': 
+    main()
