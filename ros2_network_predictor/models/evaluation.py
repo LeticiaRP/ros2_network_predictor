@@ -840,6 +840,7 @@ def lead_time_efficiency(trust_h, trust_hmax, lead_time_h):
         raise ValueError(f"Error processig lead-time efficiency: {e}")
 
 
+
 def compute_weighted_utility(trust_h, lead_time_h, lead_time_hmax, alpha):
     """
     Eq. 31 Weighted utility
@@ -868,3 +869,56 @@ def compute_weighted_utility(trust_h, lead_time_h, lead_time_hmax, alpha):
 
     except Exception as e: 
         raise ValueError(f"Error processing weighted-utlity: {e}")
+
+
+
+def compute_optimal_horizon(utility_dict): 
+    """
+    Eq. 32: Optimal horizon
+
+    Finds the horizon that maximizes the weighted utility
+
+    Arguments: 
+        - utility_dict: utility score for each horizon 
+    """
+
+    try:
+        if not utility_dict: 
+            raise ValueError(f"The utility_dict is empty!")
+
+        return max(utility_dict, key=utility_dict.get)
+
+    except Exception as e: 
+        raise ValueError(f"Error processing optimal horizons: {e}")
+
+
+
+def compute_userful_horizon(msis_dict, trust_dict, u_min): 
+    """
+    Eq. 33: Userful horizon
+
+    Finds the largest horizon that satifies both accuracy (MSIS <= 1.0) and 
+    and trustworthiness (U_trust >= u_min) constraints
+
+    Arguments: 
+        - msis_dict: dictionary mapping each horizon h to its MSIS 
+        - trust_dict: dictionary mapping each horizon h to its trustworthiness score 
+        - u_min: minimum acceptable 
+
+    Returns: 
+        - h_use: largest valid horizon satisfying both constraints 
+    """
+
+    try:
+        useful_horizons = [
+            h for h in msis_dict.keys() 
+            if msis_dict[h] <= 1.0 and trust_dict[h] >= u_min
+        ]
+        
+        if not useful_horizons:
+            return 0 
+
+        return max(useful_horizons)
+
+    except Exception as e: 
+        raise ValueError(f"Error processing userful horizon: {e}")
