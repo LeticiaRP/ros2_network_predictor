@@ -24,8 +24,8 @@ def generate_mock_csv(filepath, freq_hz, qos, topology, num_samples=NUM_SAMPLES)
     latency = np.random.normal(base_latency, base_latency * 0.1, num_samples).astype(int)
     
     # 3. Insere picos (deadline misses) em 2% dos pacotes - CORRIGIDO AQUI
-    spike_indices = np.random.choice(num_samples, size=int(num_samples * 0.02), replace=False)
-    spikes = (base_latency * np.random.uniform(2, 5, len(spike_indices))).astype(int)
+    spike_indices = np.random.choice(num_samples, size=int(num_samples * 0.30), replace=False)
+    spikes = (base_latency * np.random.uniform(15, 30, len(spike_indices))).astype(int)
     latency[spike_indices] += spikes
     
     # 4. O tempo de recepção (rx)
@@ -49,10 +49,10 @@ if __name__ == "__main__":
     
     # TREINO
     generate_mock_csv(f"{BASE_DIR}/train/latency_h2h_best_effort_5.0Hz.csv", 5, "best_effort", "h2h")
-    generate_mock_csv(f"{BASE_DIR}/train/latency_m2m_reliable_20.0hZ.csv", 20, "reliable", "m2m")
+    generate_mock_csv(f"{BASE_DIR}/train/latency_m2m_reliable_20.0Hz.csv", 20, "reliable", "m2m")
     
     # VALIDAÇÃO
-    generate_mock_csv(f"{BASE_DIR}/val/latency_h2h_reliable_20.0hZ.csv", 20, "reliable", "h2h")
+    generate_mock_csv(f"{BASE_DIR}/val/latency_h2h_reliable_20.0Hz.csv", 20, "reliable", "h2h")
     
     # TESTE
     generate_mock_csv(f"{BASE_DIR}/test/rtt_h2m_best_effort_100.0Hz.csv", 100, "best_effort", "rtt_h2m")
