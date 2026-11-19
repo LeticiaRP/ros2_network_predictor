@@ -922,3 +922,97 @@ def compute_userful_horizon(msis_dict, trust_dict, u_min):
 
     except Exception as e: 
         raise ValueError(f"Error processing userful horizon: {e}")
+
+
+
+def compute_rolling_mean(RI, W): 
+    """
+    Eq. 34. Rolling mean 
+
+    Rolling mean of the risk index 
+
+    Arguments:
+        - RI: risk index array 
+        - W: window size 
+    
+    Returns: 
+        - rolling_mean: rolling mean 
+    """ 
+
+
+    RI = pd.Series(RI)
+
+    rolling_mean = RI.rolling(window=W, min_periods=1).mean()
+
+    return rolling_mean
+
+
+
+def compute_rolling_std(RI, W): 
+    """
+    Eq. 35: Rolling standard deviation
+
+    Rolling standard deviation of the Risk Index
+
+    Arguments: 
+        - RI: risk index array
+        - W: window size
+    
+    Returns:
+        - rolling_std
+    """
+
+    RI = pd.Series(RI)
+
+    rolling_std = RI.rolling(window=W, min_periods=1).std(ddof=0)
+
+    return rolling_std
+
+
+
+def compute_cv(RI, W): 
+    """
+    Eq. 36: rolling coefficient of variation
+
+    Rolling coefficient of variation of the Risk Index 
+
+    Arguments: 
+        - RI: risk index array
+        - W: window size
+    
+    Returns:
+        - cv: coefficient of variation
+    """
+
+
+    rolling_mean = compute_rolling_mean(RI, W)
+    rolling_std = compute_rolling_std(RI, W)
+
+    cv = rolling_std / rolling_mean
+
+    return cv 
+
+
+
+def compute_rolling_range(RI, W): 
+    """
+    Eq. 37: rolling range
+
+    Rolling range of the Risk Index 
+
+    Arguments: 
+        - RI: risk index array
+        - W: window size
+    
+    Returns:
+        - rolling_range
+    """
+
+    RI = pd.Series(RI)
+
+    rolling_max = RI.rolling(window=W, min_periods=1).max()
+    rolling_min = RI.rolling(window=W, min_periods=1).min()
+
+    rolling_range = rolling_max - rolling_min
+    return rolling_range
+
