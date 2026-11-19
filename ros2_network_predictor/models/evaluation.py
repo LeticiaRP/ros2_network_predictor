@@ -1088,3 +1088,59 @@ def compute_lsi(RI):
     
     except Exception as e: 
         raise ValueError(f"Error processing LSI: {e}")
+
+
+
+def compute_mean_ri_across_runs(ri_runs_matrix):
+    """
+    Eq. 41.1: Cross-run reproducibility - Mean RI across runs 
+    Calculates the mean Risk Index across R repeated runs at each time step t.
+    RI_bar(t) = (1/R) * sum(RI(r)(t))
+    
+    Arguments:
+        - ri_runs_matrix: 2D numpy array of shape (R, T), where R is the number of runs 
+                          and T is the time steps.
+                          
+    Returns:
+        - np.array: Mean Risk Index across runs for each time step (shape T).
+    """
+    # axis=0 computes the mean vertically (across the runs) for each time step
+    return np.mean(ri_runs_matrix, axis=0)
+
+
+
+def compute_std_across_runs(ri_runs_matrix):
+    """
+    Eq. 41.2: Cross-run reproducibility - standard RI deviation across runs 
+
+    Calculates the standard deviation across R repeated runs at each time step t.
+    sigma_run(t) = sqrt( (1/(R-1)) * sum((RI(r)(t) - RI_bar(t))^2) )
+    
+    Arguments:
+        - ri_runs_matrix: 2D numpy array of shape (R, T).
+                          
+    Returns:
+        - np.array: Standard deviation across runs for each time step (shape T).
+    """
+    # ddof=1 ensures division by (R-1), matching the sample standard deviation formula
+    return np.std(ri_runs_matrix, axis=0, ddof=1)
+
+
+
+def compute_r2r(sigma_run_array):
+    """
+    Eq. 41.3: 
+
+    Quantifies run-to-run variability by taking the time-averaged standard deviation.
+    R2R = (1/T) * sum(sigma_run(t))
+    
+    Arguments:
+        - sigma_run_array: array containing the standard deviation across runs (shape T).
+                          
+    Returns:
+        - float: Cross-run reproducibility score.
+    """
+    if len(sigma_run_array) == 0:
+        return 0.0
+        
+    return np.mean(sigma_run_array)
